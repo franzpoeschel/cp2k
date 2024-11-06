@@ -115,6 +115,7 @@ option(CP2K_USE_QUIP "Enable quip support" OFF)
 option(CP2K_USE_SPGLIB "Enable spglib support" OFF)
 option(CP2K_USE_LIBXC "Enable libxc support" OFF)
 option(CP2K_USE_LIBTORCH "Enable libtorch support" OFF)
+option(CP2K_USE_OPENPMD "Enable support for I/O via openPMD" OFF)
 option(CP2K_USE_STATIC_BLAS "Link against static version of BLAS/LAPACK" OFF)
 option(CP2K_USE_SPLA
        "Use SPLA offloading gemm feature to the GPU if it is beneficial. " OFF)
@@ -199,6 +200,7 @@ if(${cp2k_build_options_up} STREQUAL "FULL")
   set(CP2K_USE_ELPA ON)
   set(CP2K_USE_SPGLIB ON)
   set(CP2K_USE_LIBTORCH ON)
+  set(CP2K_USE_OPENPMD ON)
   set(CP2K_USE_METIS ON)
   set(CP2K_USE_QUIP ON)
   set(CP2K_USE_PEXSI ON)
@@ -736,6 +738,10 @@ if(CP2K_USE_LIBTORCH)
   find_package(Torch REQUIRED)
 endif()
 
+if(CP2K_USE_OPENPMD)
+  find_package(openPMD 0.16.1 REQUIRED)
+endif()
+
 if(CP2K_USE_MPI_F08 AND NOT MPI_Fortran_HAVE_F08_MODULE)
   message(
     FATAL_ERROR
@@ -843,6 +849,10 @@ endif()
 
 if(CP2K_USE_LIBTORCH)
   message("  - LIBTORCH\n" "    - libraries : ${CP2K_LIBTORCH_LIBRARIES}\n\n")
+endif()
+
+if(CP2K_USE_OPENPMD)
+  message("  - openPMD\n" "    - libraries : ${openPMD_DIR}\n\n")
 endif()
 
 if(CP2K_USE_FFTW3)
@@ -1015,6 +1025,10 @@ endif()
 
 if(NOT CP2K_USE_LIBTORCH)
   message("   - libtorch")
+endif()
+
+if(NOT CP2K_USE_OPENPMD)
+  message("   - openPMD")
 endif()
 
 message("\n\n" "To run the regtests you need to run the following commands\n"
