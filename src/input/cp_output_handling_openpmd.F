@@ -98,7 +98,7 @@ MODULE cp_output_handling_openpmd
       ! openPMD output Series.
       TYPE(openpmd_series_type) :: output_series
       ! Information on the last Iteration that was written to, including
-      ! CP2K'2 complex Iteration number and its associated contiguous scalar
+      ! CP2Ks complex Iteration number and its associated contiguous scalar
       ! openPMD Iteration number.
       TYPE(cp_current_iteration_counter_type) :: iteration_counter
    END TYPE cp_openpmd_per_callsite_value_type
@@ -444,7 +444,6 @@ CONTAINS
 !> \param log_filename ...
 !> \param ignore_should_output ...
 !> \param file_form ...
-!> \param file_position ...
 !> \param file_action ...
 !> \param file_status ...
 !> \param do_backup ...
@@ -462,7 +461,7 @@ CONTAINS
 !> \return ...
 ! **************************************************************************************************
    FUNCTION cp_openpmd_print_key_unit_nr(logger, basis_section, print_key_path, &
-                                         middle_name, log_filename, ignore_should_output, file_form, file_position, &
+                                         middle_name, log_filename, ignore_should_output, file_form, &
                                          file_action, file_status, on_file, mpi_io, &
                                          fout, openpmd_basename) RESULT(res)
       TYPE(cp_logger_type), POINTER                      :: logger
@@ -470,7 +469,7 @@ CONTAINS
       CHARACTER(len=*), INTENT(IN), OPTIONAL             :: print_key_path
       CHARACTER(len=*), INTENT(IN), OPTIONAL             :: middle_name
       LOGICAL, INTENT(IN), OPTIONAL                      :: log_filename, ignore_should_output
-      CHARACTER(len=*), INTENT(IN), OPTIONAL             :: file_form, file_position, file_action, &
+      CHARACTER(len=*), INTENT(IN), OPTIONAL             :: file_form, file_action, &
                                                             file_status
       LOGICAL, INTENT(IN), OPTIONAL                      :: on_file
       LOGICAL, INTENT(INOUT), OPTIONAL                   :: mpi_io

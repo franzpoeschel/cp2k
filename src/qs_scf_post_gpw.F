@@ -1196,7 +1196,7 @@ CONTAINS
 #ifdef __OPENPMD
             ELSE
                unit_nr = cp_openpmd_print_key_unit_nr(logger, input, section_base_absolute, &
-                                                      middle_name=TRIM(filename), file_position=my_pos_cube, log_filename=.FALSE., &
+                                                      middle_name=TRIM(filename), log_filename=.FALSE., &
                                                       mpi_io=mpi_io, openpmd_basename="dft-mo")
                WRITE (title, *) "WAVEFUNCTION ", ivector, " spin ", ispin, " i.e. HOMO - ", ivector - homo
                CALL cp_pw_to_openpmd(wf_r, unit_nr, title, particles=particles, &
@@ -1309,7 +1309,7 @@ CONTAINS
 #ifdef __OPENPMD
             ELSE
                unit_nr = cp_openpmd_print_key_unit_nr(logger, input, section_base_absolute, &
-                                                      middle_name=TRIM(filename), file_position=my_pos_cube, log_filename=.FALSE., &
+                                                      middle_name=TRIM(filename), log_filename=.FALSE., &
                                                       mpi_io=mpi_io, openpmd_basename="dft-mo")
                WRITE (title, *) "WAVEFUNCTION ", index_mo, " spin ", ispin, " i.e. LUMO + ", ifirst + ivector - 2
                CALL cp_pw_to_openpmd(wf_r, unit_nr, title, particles=particles, &
@@ -1665,7 +1665,7 @@ CONTAINS
                   CALL cp_print_key_finished_output(unit_nr, logger, input, elf_section_key%section_key, mpi_io=mpi_io)
                ELSE
                   unit_nr = cp_openpmd_print_key_unit_nr(logger, input, elf_section_key%section_key, &
-                                                      middle_name=TRIM(filename), file_position=my_pos_cube, log_filename=.FALSE., &
+                                                      middle_name=TRIM(filename), log_filename=.FALSE., &
                                                          mpi_io=mpi_io, openpmd_basename="dft-elf", fout=filename)
                   IF (output_unit > 0) THEN
                      WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
@@ -2181,7 +2181,8 @@ CONTAINS
          ! Write the info on core densities for the interface between cp2k and the XRD code
          ! together with the valence density they are used to compute the form factor (Fourier transform)
          xrd_interface = section_get_lval(input, e_density_section%section_key // "%XRD_INTERFACE")
-         IF (xrd_interface) THEN
+         ! Unimplemented for openPMD, since this does not use the regular routines
+         IF (xrd_interface .AND. e_density_section%grid_output == grid_output_cubes) THEN
             !cube file only contains soft density (GAPW)
             IF (dft_control%qs_control%gapw) print_density = "SOFT_DENSITY"
 
@@ -2329,10 +2330,17 @@ CONTAINS
             rho_total_rspace = pw_integrate_function(rho_elec_rspace, isign=-1)
             filename = "TOTAL_ELECTRON_DENSITY"
             mpi_io = .TRUE.
-            unit_nr = cp_print_key_unit_nr(logger, input, e_density_section%section_key, &
-                                           extension=".cube", middle_name=TRIM(filename), &
-                                           file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
-                                           fout=mpi_filename)
+            IF (e_density_section%grid_output == grid_output_cubes) THEN
+               unit_nr = cp_print_key_unit_nr(logger, input, e_density_section%section_key, &
+                                             extension=".cube", middle_name=TRIM(filename), &
+                                             file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
+                                             fout=mpi_filename)
+            ELSE
+               unit_nr = cp_openpmd_print_key_unit_nr(logger, input, e_density_section%section_key, &
+                                             middle_name=TRIM(filename), openpmd_basename="dft-e-density", &
+                                             log_filename=.FALSE., mpi_io=mpi_io, &
+                                             fout=mpi_filename)
+            END IF
             IF (output_unit > 0) THEN
                IF (.NOT. mpi_io) THEN
                   INQUIRE (UNIT=unit_nr, NAME=filename)
@@ -2349,11 +2357,19 @@ CONTAINS
                   "Total electronic charge (G-space):", rho_total, &
                   "Total electronic charge (R-space):", rho_total_rspace
             END IF
-            CALL cp_pw_to_cube(rho_elec_rspace, unit_nr, "TOTAL ELECTRON DENSITY", &
-                               particles=particles, &
-                               stride=section_get_ivals(dft_section, key_without_dft_prefix // "%STRIDE"), mpi_io=mpi_io)
-            CALL cp_print_key_finished_output(unit_nr, logger, input, &
-                                              e_density_section%section_key, mpi_io=mpi_io)
+            IF (e_density_section%grid_output == grid_output_cubes) THEN
+               CALL cp_pw_to_cube(rho_elec_rspace, unit_nr, "TOTAL ELECTRON DENSITY", &
+                                 particles=particles, &
+                                 stride=section_get_ivals(dft_section, key_without_dft_prefix // "%STRIDE"), mpi_io=mpi_io)
+               CALL cp_print_key_finished_output(unit_nr, logger, input, &
+                                                e_density_section%section_key, mpi_io=mpi_io)
+            ELSE
+               CALL cp_pw_to_openpmd(rho_elec_rspace, unit_nr, "TOTAL ELECTRON DENSITY", &
+                                 particles=particles, &
+                                 stride=section_get_ivals(dft_section, key_without_dft_prefix // "%STRIDE"), mpi_io=mpi_io)
+               CALL cp_openpmd_print_key_finished_output(unit_nr, logger, input, &
+                                                e_density_section%section_key, mpi_io=mpi_io)
+            END IF
             ! Print total spin density for spin-polarized systems
             IF (dft_control%nspins > 1) THEN
                CALL pw_zero(rho_elec_gspace)
