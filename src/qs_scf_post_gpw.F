@@ -319,10 +319,10 @@ CONTAINS
       LOGICAL :: do_openpmd, do_cubes
 
       do_cubes = BTEST(cp_print_key_should_output(logger%iter_info, input, &
-                                                  str_elf_cubes), cp_p_file)
+                                                  str_cubes), cp_p_file)
 #ifdef __OPENPMD
       do_openpmd = BTEST(cp_print_key_should_output(logger%iter_info, input, &
-                                                    str_elf_openpmd), cp_p_file)
+                                                    str_openpmd), cp_p_file)
       CPASSERT(.NOT. (do_cubes .AND. do_openpmd))
       res%do_output = do_cubes .OR. do_openpmd
       IF (do_openpmd) THEN
@@ -2240,16 +2240,24 @@ CONTAINS
                                    keyword_name=key_without_dft_prefix//"%DENSITY_INCLUDE", &
                                    c_val=print_density)
          print_density = TRIM(print_density)
-         append_cube = section_get_lval(input, e_density_section%section_key//"%APPEND")
+         ! For openPMD, refer to access modes instead of APPEND key
+         IF (e_density_section%grid_output == grid_output_cubes) THEN
+            append_cube = section_get_lval(input, e_density_section%section_key//"%APPEND")
+         END IF
          my_pos_cube = "REWIND"
          IF (append_cube) THEN
             my_pos_cube = "APPEND"
          END IF
          ! Write the info on core densities for the interface between cp2k and the XRD code
          ! together with the valence density they are used to compute the form factor (Fourier transform)
-         xrd_interface = section_get_lval(input, e_density_section%section_key//"%XRD_INTERFACE")
-         ! Unimplemented for openPMD, since this does not use the regular routines
-         IF (xrd_interface .AND. e_density_section%grid_output == grid_output_cubes) THEN
+         IF (e_density_section%grid_output == grid_output_cubes) THEN
+            xrd_interface = section_get_lval(input, e_density_section%section_key//"%XRD_INTERFACE")
+         ELSE
+            ! Unimplemented for openPMD, since this does not use the regular routines
+            xrd_interface = .FALSE.
+         END IF
+
+         IF (xrd_interface) THEN
             !cube file only contains soft density (GAPW)
             IF (dft_control%qs_control%gapw) print_density = "SOFT_DENSITY"
 
