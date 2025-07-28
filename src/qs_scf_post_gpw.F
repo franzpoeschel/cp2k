@@ -222,6 +222,7 @@ MODULE qs_scf_post_gpw
    INTEGER, PARAMETER :: grid_output_cubes = 1, grid_output_openpmd = 2
    TYPE cp_section_key
       CHARACTER(len=default_string_length) :: section_key
+      CHARACTER(len=7) :: format_name ! for output
       INTEGER :: grid_output
       LOGICAL :: do_output
    CONTAINS
@@ -327,14 +328,17 @@ CONTAINS
       IF (do_openpmd) THEN
          res%grid_output = grid_output_openpmd
          res%section_key = TRIM(ADJUSTL(str_openpmd))
+         res%format_name = "openPMD"
       ELSE
          res%grid_output = grid_output_cubes
          res%section_key = TRIM(ADJUSTL(str_cubes))
+         res%format_name = "Cube"
       END IF
 #else
       res%do_output = do_cubes
       res%grid_output = grid_output_cubes
       res%section_key = TRIM(ADJUSTL(str_cubes))
+      res%format_name = "Cube"
 #endif
    END FUNCTION
 
@@ -1733,15 +1737,9 @@ CONTAINS
                   ELSE
                      filename = mpi_filename
                   END IF
-                  IF (elf_section_key%grid_output == grid_output_cubes) THEN
-                     WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
-                        "ELF is written in cube file format to the file:", &
-                        TRIM(filename)
-                  ELSE
-                     WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
-                        "ELF is written in openPMD file format to the file:", &
-                        TRIM(filename)
-                  END IF
+                  WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
+                     "ELF is written in "//elf_section_key%format_name//" file format to the file:", &
+                     TRIM(filename)
                END IF
 
                CALL elf_section_key%write_pw(elf_r(ispin), unit_nr, title, particles=particles, &
@@ -2402,7 +2400,7 @@ CONTAINS
             unit_nr = e_density_section%print_key_unit_nr(logger, input, e_density_section%section_key, &
                                                           extension=".cube", middle_name=TRIM(filename), &
                                                           file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
-                                                          fout=mpi_filename, openpmd_basename="dft-e-density")
+                                                          fout=mpi_filename, openpmd_basename="dft-total-electron-density")
             IF (output_unit > 0) THEN
                IF (.NOT. mpi_io) THEN
                   INQUIRE (UNIT=unit_nr, NAME=filename)
@@ -2410,7 +2408,7 @@ CONTAINS
                   filename = mpi_filename
                END IF
                WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
-                  "The total electron density is written in cube file format to the file:", &
+                  "The total electron density is written in "//e_density_section%format_name//" file format to the file:", &
                   TRIM(filename)
                WRITE (UNIT=output_unit, FMT="(/,(T2,A,F20.10))") &
                   "q(max) [1/Angstrom]              :", q_max/angstrom, &
@@ -2445,18 +2443,18 @@ CONTAINS
                rho_total_rspace = pw_integrate_function(rho_elec_rspace, isign=-1)
                filename = "TOTAL_SPIN_DENSITY"
                mpi_io = .TRUE.
-               unit_nr = cp_print_key_unit_nr(logger, input, e_density_section%section_key, &
+               unit_nr = e_density_section%print_key_unit_nr(logger, input, e_density_section%section_key, &
                                               extension=".cube", middle_name=TRIM(filename), &
                                               file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
-                                              fout=mpi_filename)
+                                              fout=mpi_filename, openpmd_basename="dft-total-spin-density")
                IF (output_unit > 0) THEN
-                  IF (.NOT. mpi_io) THEN
+                  IF (.NOT. mpi_io .AND. e_density_section%grid_output == grid_output_cubes) THEN
                      INQUIRE (UNIT=unit_nr, NAME=filename)
                   ELSE
                      filename = mpi_filename
                   END IF
                   WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
-                     "The total spin density is written in cube file format to the file:", &
+                     "The total spin density is written in "//e_density_section%format_name//" file format to the file:", &
                      TRIM(filename)
                   WRITE (UNIT=output_unit, FMT="(/,(T2,A,F20.10))") &
                      "q(max) [1/Angstrom]                    :", q_max/angstrom, &
@@ -2465,10 +2463,10 @@ CONTAINS
                      "Total spin density (G-space)           :", rho_total, &
                      "Total spin density (R-space)           :", rho_total_rspace
                END IF
-               CALL cp_pw_to_cube(rho_elec_rspace, unit_nr, "TOTAL SPIN DENSITY", &
+               CALL e_density_section%write_pw(rho_elec_rspace, unit_nr, "TOTAL SPIN DENSITY", &
                                   particles=particles, &
                                   stride=section_get_ivals(dft_section, key_without_dft_prefix//"%STRIDE"), mpi_io=mpi_io)
-               CALL cp_print_key_finished_output(unit_nr, logger, input, &
+               CALL e_density_section%print_key_finished_output(unit_nr, logger, input, &
                                                  e_density_section%section_key, mpi_io=mpi_io)
             END IF
             CALL auxbas_pw_pool%give_back_pw(rho_elec_gspace)
@@ -2486,70 +2484,70 @@ CONTAINS
                CALL pw_axpy(rho_r(2), rho_elec_rspace)
                filename = "ELECTRON_DENSITY"
                mpi_io = .TRUE.
-               unit_nr = cp_print_key_unit_nr(logger, input, e_density_section%section_key, &
+               unit_nr = e_density_section%print_key_unit_nr(logger, input, e_density_section%section_key, &
                                               extension=".cube", middle_name=TRIM(filename), &
                                               file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
-                                              fout=mpi_filename)
+                                              fout=mpi_filename, openpmd_basename="dft-electron-density")
                IF (output_unit > 0) THEN
-                  IF (.NOT. mpi_io) THEN
+                  IF (.NOT. mpi_io .AND. e_density_section%grid_output == grid_output_cubes) THEN
                      INQUIRE (UNIT=unit_nr, NAME=filename)
                   ELSE
                      filename = mpi_filename
                   END IF
                   WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
-                     "The sum of alpha and beta density is written in cube file format to the file:", &
+                     "The sum of alpha and beta density is written in "//e_density_section%format_name//" file format to the file:", &
                      TRIM(filename)
                END IF
-               CALL cp_pw_to_cube(rho_elec_rspace, unit_nr, "SUM OF ALPHA AND BETA DENSITY", &
+               CALL e_density_section%write_pw(rho_elec_rspace, unit_nr, "SUM OF ALPHA AND BETA DENSITY", &
                                   particles=particles, stride=section_get_ivals(dft_section, key_without_dft_prefix//"%STRIDE"), &
                                   mpi_io=mpi_io)
-               CALL cp_print_key_finished_output(unit_nr, logger, input, &
+               CALL e_density_section%print_key_finished_output(unit_nr, logger, input, &
                                                  e_density_section%section_key, mpi_io=mpi_io)
                CALL pw_copy(rho_r(1), rho_elec_rspace)
                CALL pw_axpy(rho_r(2), rho_elec_rspace, alpha=-1.0_dp)
                filename = "SPIN_DENSITY"
                mpi_io = .TRUE.
-               unit_nr = cp_print_key_unit_nr(logger, input, e_density_section%section_key, &
+               unit_nr = e_density_section%print_key_unit_nr(logger, input, e_density_section%section_key, &
                                               extension=".cube", middle_name=TRIM(filename), &
                                               file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
-                                              fout=mpi_filename)
+                                              fout=mpi_filename, openpmd_basename="dft-spin-density")
                IF (output_unit > 0) THEN
-                  IF (.NOT. mpi_io) THEN
+                  IF (.NOT. mpi_io .AND. e_density_section%grid_output == grid_output_cubes) THEN
                      INQUIRE (UNIT=unit_nr, NAME=filename)
                   ELSE
                      filename = mpi_filename
                   END IF
                   WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
-                     "The spin density is written in cube file format to the file:", &
+                     "The spin density is written in "//e_density_section%format_name//" file format to the file:", &
                      TRIM(filename)
                END IF
-               CALL cp_pw_to_cube(rho_elec_rspace, unit_nr, "SPIN DENSITY", &
+               CALL e_density_section%write_pw(rho_elec_rspace, unit_nr, "SPIN DENSITY", &
                                   particles=particles, &
                                   stride=section_get_ivals(dft_section, key_without_dft_prefix//"%STRIDE"), mpi_io=mpi_io)
-               CALL cp_print_key_finished_output(unit_nr, logger, input, &
+               CALL e_density_section%print_key_finished_output(unit_nr, logger, input, &
                                                  e_density_section%section_key, mpi_io=mpi_io)
                CALL auxbas_pw_pool%give_back_pw(rho_elec_rspace)
             ELSE
                filename = "ELECTRON_DENSITY"
                mpi_io = .TRUE.
-               unit_nr = cp_print_key_unit_nr(logger, input, e_density_section%section_key, &
+               unit_nr = e_density_section%print_key_unit_nr(logger, input, e_density_section%section_key, &
                                               extension=".cube", middle_name=TRIM(filename), &
                                               file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
-                                              fout=mpi_filename)
+                                              fout=mpi_filename, openpmd_basename="dft-electron-density")
                IF (output_unit > 0) THEN
-                  IF (.NOT. mpi_io) THEN
+                  IF (.NOT. mpi_io .AND. e_density_section%grid_output == grid_output_cubes) THEN
                      INQUIRE (UNIT=unit_nr, NAME=filename)
                   ELSE
                      filename = mpi_filename
                   END IF
                   WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
-                     "The electron density is written in cube file format to the file:", &
+                     "The electron density is written in "//e_density_section%format_name//" file format to the file:", &
                      TRIM(filename)
                END IF
-               CALL cp_pw_to_cube(rho_r(1), unit_nr, "ELECTRON DENSITY", &
+               CALL e_density_section%write_pw(rho_r(1), unit_nr, "ELECTRON DENSITY", &
                                   particles=particles, &
                                   stride=section_get_ivals(dft_section, key_without_dft_prefix//"%STRIDE"), mpi_io=mpi_io)
-               CALL cp_print_key_finished_output(unit_nr, logger, input, &
+               CALL e_density_section%print_key_finished_output(unit_nr, logger, input, &
                                                  e_density_section%section_key, mpi_io=mpi_io)
             END IF ! nspins
 
@@ -2584,28 +2582,28 @@ CONTAINS
 
             filename = "ELECTRON_DENSITY"
             mpi_io = .TRUE.
-            unit_nr = cp_print_key_unit_nr(logger, input, e_density_section%section_key, &
+            unit_nr = e_density_section%print_key_unit_nr(logger, input, e_density_section%section_key, &
                                            extension=".cube", middle_name=TRIM(filename), &
                                            file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
-                                           fout=mpi_filename)
+                                           fout=mpi_filename, openpmd_basename="dft-electron-density")
             IF (output_unit > 0) THEN
-               IF (.NOT. mpi_io) THEN
+               IF (.NOT. mpi_io .AND. e_density_section%grid_output == grid_output_cubes) THEN
                   INQUIRE (UNIT=unit_nr, NAME=filename)
                ELSE
                   filename = mpi_filename
                END IF
                WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
-                  "The electron density is written in cube file format to the file:", &
+                  "The electron density is written in "//e_density_section%format_name//" file format to the file:", &
                   TRIM(filename)
                WRITE (UNIT=output_unit, FMT="(/,(T2,A,F20.10))") &
                   "Soft electronic charge (R-space) :", rho_soft, &
                   "Hard electronic charge (R-space) :", rho_hard, &
                   "Total electronic charge (R-space):", rho_total_rspace
             END IF
-            CALL cp_pw_to_cube(rho_elec_rspace, unit_nr, "ELECTRON DENSITY", &
+            CALL e_density_section%write_pw(rho_elec_rspace, unit_nr, "ELECTRON DENSITY", &
                                particles=particles, stride=section_get_ivals(dft_section, key_without_dft_prefix//"%STRIDE"), &
                                mpi_io=mpi_io)
-            CALL cp_print_key_finished_output(unit_nr, logger, input, &
+            CALL e_density_section%print_key_finished_output(unit_nr, logger, input, &
                                               e_density_section%section_key, mpi_io=mpi_io)
 
             !------------
@@ -2626,28 +2624,28 @@ CONTAINS
 
             filename = "SPIN_DENSITY"
             mpi_io = .TRUE.
-            unit_nr = cp_print_key_unit_nr(logger, input, e_density_section%section_key, &
+            unit_nr = e_density_section%print_key_unit_nr(logger, input, e_density_section%section_key, &
                                            extension=".cube", middle_name=TRIM(filename), &
                                            file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
-                                           fout=mpi_filename)
+                                           fout=mpi_filename, openpmd_basename="dft-spin-density")
             IF (output_unit > 0) THEN
-               IF (.NOT. mpi_io) THEN
+               IF (.NOT. mpi_io .AND. e_density_section%grid_output == grid_output_cubes) THEN
                   INQUIRE (UNIT=unit_nr, NAME=filename)
                ELSE
                   filename = mpi_filename
                END IF
                WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
-                  "The spin density is written in cube file format to the file:", &
+                  "The spin density is written in "//e_density_section%format_name//" file format to the file:", &
                   TRIM(filename)
                WRITE (UNIT=output_unit, FMT="(/,(T2,A,F20.10))") &
                   "Soft part of the spin density          :", rho_soft, &
                   "Hard part of the spin density          :", rho_hard, &
                   "Total spin density (R-space)           :", rho_total_rspace
             END IF
-            CALL cp_pw_to_cube(rho_elec_rspace, unit_nr, "SPIN DENSITY", &
+            CALL e_density_section%write_pw(rho_elec_rspace, unit_nr, "SPIN DENSITY", &
                                particles=particles, &
                                stride=section_get_ivals(dft_section, key_without_dft_prefix//"%STRIDE"), mpi_io=mpi_io)
-            CALL cp_print_key_finished_output(unit_nr, logger, input, &
+            CALL e_density_section%print_key_finished_output(unit_nr, logger, input, &
                                               e_density_section%section_key, mpi_io=mpi_io)
             END IF ! nspins
             CALL auxbas_pw_pool%give_back_pw(rho_elec_rspace)
