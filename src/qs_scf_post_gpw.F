@@ -261,11 +261,11 @@ CONTAINS
          res = cp_print_key_unit_nr(logger, basis_section, print_key_path, extension=extension, &
                                               middle_name=middle_name, local=local, log_filename=log_filename, ignore_should_output=ignore_should_output, file_form=file_form, file_position=file_position, file_action=file_action, file_status=file_status, do_backup=do_backup, on_file=on_file, is_new_file=is_new_file, mpi_io=mpi_io, fout=fout)
 #ifdef __OPENPMD
-       ELSE
+      ELSE
          res = cp_openpmd_print_key_unit_nr(logger, basis_section, print_key_path, &
-                                                      middle_name=middle_name, log_filename=log_filename, ignore_should_output=ignore_should_output, &
-                                                      mpi_io=mpi_io, fout=fout, openpmd_basename=openpmd_basename)
-       END IF
+                                    middle_name=middle_name, log_filename=log_filename, ignore_should_output=ignore_should_output, &
+                                            mpi_io=mpi_io, fout=fout, openpmd_basename=openpmd_basename)
+      END IF
 #endif
    END FUNCTION
 
@@ -282,31 +282,31 @@ CONTAINS
 #endif
          CALL cp_pw_to_cube(pw, unit_nr, title, particles, stride, zero_tails, silent, mpi_io)
 #ifdef __OPENPMD
-       ELSE
+      ELSE
          CALL cp_pw_to_openpmd(pw, unit_nr, title, particles, stride, zero_tails, silent, mpi_io)
-       END IF
+      END IF
 #endif
    END SUBROUTINE
 
    SUBROUTINE cp_forward_print_key_finished_output(self, unit_nr, logger, basis_section, &
-                                          print_key_path, local, ignore_should_output, on_file, &
-                                          mpi_io)
-   CLASS(cp_section_key), INTENT(IN)                  :: self
-   INTEGER, INTENT(INOUT)                             :: unit_nr
-   TYPE(cp_logger_type), POINTER                      :: logger
-   TYPE(section_vals_type), INTENT(IN)                :: basis_section
-   CHARACTER(len=*), INTENT(IN), OPTIONAL             :: print_key_path
-   LOGICAL, INTENT(IN), OPTIONAL                      :: local, ignore_should_output, on_file, &
-                                                         mpi_io
+                                                   print_key_path, local, ignore_should_output, on_file, &
+                                                   mpi_io)
+      CLASS(cp_section_key), INTENT(IN)                  :: self
+      INTEGER, INTENT(INOUT)                             :: unit_nr
+      TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(section_vals_type), INTENT(IN)                :: basis_section
+      CHARACTER(len=*), INTENT(IN), OPTIONAL             :: print_key_path
+      LOGICAL, INTENT(IN), OPTIONAL                      :: local, ignore_should_output, on_file, &
+                                                            mpi_io
 
 #ifdef __OPENPMD
       IF (self%grid_output == grid_output_cubes) THEN
 #endif
-         CALL cp_print_key_finished_output(unit_nr, logger, basis_section, print_key_path, local, ignore_should_output, on_file, mpi_io)
+     CALL cp_print_key_finished_output(unit_nr, logger, basis_section, print_key_path, local, ignore_should_output, on_file, mpi_io)
 #ifdef __OPENPMD
-       ELSE
-         CALL cp_openpmd_print_key_finished_output(unit_nr, logger, basis_section, print_key_path, local, ignore_should_output, mpi_io)
-       END IF
+      ELSE
+      CALL cp_openpmd_print_key_finished_output(unit_nr, logger, basis_section, print_key_path, local, ignore_should_output, mpi_io)
+      END IF
 #endif
    END SUBROUTINE
 
@@ -318,10 +318,10 @@ CONTAINS
       LOGICAL :: do_openpmd, do_cubes
 
       do_cubes = BTEST(cp_print_key_should_output(logger%iter_info, input, &
-                                                      str_elf_cubes), cp_p_file)
+                                                  str_elf_cubes), cp_p_file)
 #ifdef __OPENPMD
       do_openpmd = BTEST(cp_print_key_should_output(logger%iter_info, input, &
-                                                        str_elf_openpmd), cp_p_file)
+                                                    str_elf_openpmd), cp_p_file)
       CPASSERT(.NOT. (do_cubes .AND. do_openpmd))
       res%do_output = do_cubes .OR. do_openpmd
       IF (do_openpmd) THEN
@@ -1723,10 +1723,10 @@ CONTAINS
                WRITE (filename, '(a5,I1.1)') "ELF_S", ispin
                WRITE (title, *) "ELF spin ", ispin
                mpi_io = .TRUE.
-               unit_nr = elf_section_key%print_key_unit_nr(&
-                  logger, input, elf_section_key%section_key, extension=".cube", &
-                  middle_name=TRIM(filename), file_position=my_pos_cube, log_filename=.FALSE., &
-                  mpi_io=mpi_io, fout=mpi_filename, openpmd_basename="dft-elf")
+               unit_nr = elf_section_key%print_key_unit_nr( &
+                         logger, input, elf_section_key%section_key, extension=".cube", &
+                         middle_name=TRIM(filename), file_position=my_pos_cube, log_filename=.FALSE., &
+                         mpi_io=mpi_io, fout=mpi_filename, openpmd_basename="dft-elf")
                IF (output_unit > 0) THEN
                   IF (.NOT. mpi_io) THEN
                      INQUIRE (UNIT=unit_nr, NAME=filename)
@@ -1745,7 +1745,7 @@ CONTAINS
                END IF
 
                CALL elf_section_key%write_pw(elf_r(ispin), unit_nr, title, particles=particles, &
-                                    stride=section_get_ivals(elf_section, "STRIDE"), mpi_io=mpi_io)
+                                             stride=section_get_ivals(elf_section, "STRIDE"), mpi_io=mpi_io)
                CALL elf_section_key%print_key_finished_output(unit_nr, logger, input, elf_section_key%section_key, mpi_io=mpi_io)
 
                CALL auxbas_pw_pool%give_back_pw(elf_r(ispin))
@@ -2165,7 +2165,6 @@ CONTAINS
                                                             print_key_voro, xc_section
       TYPE(cp_section_key) :: e_density_section
 
-
       CALL timeset(routineN, handle)
       NULLIFY (cell, dft_control, pw_env, auxbas_pw_pool, pw_pools, hfx_section, &
                atomic_kind_set, qs_kind_set, particle_set, rho, ks_rmpv, rho_ao, rho_r, &
@@ -2240,17 +2239,17 @@ CONTAINS
       IF (e_density_section%do_output) THEN
          key_without_dft_prefix = TRIM(ADJUSTL(e_density_section%section_key(5:LEN(e_density_section%section_key))))
          CALL section_vals_val_get(dft_section, &
-                                   keyword_name=key_without_dft_prefix // "%DENSITY_INCLUDE", &
+                                   keyword_name=key_without_dft_prefix//"%DENSITY_INCLUDE", &
                                    c_val=print_density)
          print_density = TRIM(print_density)
-         append_cube = section_get_lval(input, e_density_section%section_key // "%APPEND")
+         append_cube = section_get_lval(input, e_density_section%section_key//"%APPEND")
          my_pos_cube = "REWIND"
          IF (append_cube) THEN
             my_pos_cube = "APPEND"
          END IF
          ! Write the info on core densities for the interface between cp2k and the XRD code
          ! together with the valence density they are used to compute the form factor (Fourier transform)
-         xrd_interface = section_get_lval(input, e_density_section%section_key // "%XRD_INTERFACE")
+         xrd_interface = section_get_lval(input, e_density_section%section_key//"%XRD_INTERFACE")
          ! Unimplemented for openPMD, since this does not use the regular routines
          IF (xrd_interface .AND. e_density_section%grid_output == grid_output_cubes) THEN
             !cube file only contains soft density (GAPW)
@@ -2260,7 +2259,7 @@ CONTAINS
             unit_nr = cp_print_key_unit_nr(logger, input, e_density_section%section_key, &
                                            extension=".xrd", middle_name=TRIM(filename), &
                                            file_position=my_pos_cube, log_filename=.FALSE.)
-            ngto = section_get_ival(input, e_density_section%section_key // "%NGAUSS")
+            ngto = section_get_ival(input, e_density_section%section_key//"%NGAUSS")
             IF (output_unit > 0) THEN
                INQUIRE (UNIT=unit_nr, NAME=filename)
                WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
@@ -2401,9 +2400,9 @@ CONTAINS
             filename = "TOTAL_ELECTRON_DENSITY"
             mpi_io = .TRUE.
             unit_nr = e_density_section%print_key_unit_nr(logger, input, e_density_section%section_key, &
-                                          extension=".cube", middle_name=TRIM(filename), &
-                                          file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
-                                          fout=mpi_filename, openpmd_basename="dft-e-density")
+                                                          extension=".cube", middle_name=TRIM(filename), &
+                                                          file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
+                                                          fout=mpi_filename, openpmd_basename="dft-e-density")
             IF (output_unit > 0) THEN
                IF (.NOT. mpi_io) THEN
                   INQUIRE (UNIT=unit_nr, NAME=filename)
@@ -2421,10 +2420,10 @@ CONTAINS
                   "Total electronic charge (R-space):", rho_total_rspace
             END IF
             CALL e_density_section%write_pw(rho_elec_rspace, unit_nr, "TOTAL ELECTRON DENSITY", &
-                              particles=particles, &
-                              stride=section_get_ivals(dft_section, key_without_dft_prefix // "%STRIDE"), mpi_io=mpi_io)
+                                            particles=particles, &
+                                            stride=section_get_ivals(dft_section, key_without_dft_prefix//"%STRIDE"), mpi_io=mpi_io)
             CALL e_density_section%print_key_finished_output(unit_nr, logger, input, &
-                                             e_density_section%section_key, mpi_io=mpi_io)
+                                                             e_density_section%section_key, mpi_io=mpi_io)
             ! Print total spin density for spin-polarized systems
             IF (dft_control%nspins > 1) THEN
                CALL pw_zero(rho_elec_gspace)
@@ -2468,7 +2467,7 @@ CONTAINS
                END IF
                CALL cp_pw_to_cube(rho_elec_rspace, unit_nr, "TOTAL SPIN DENSITY", &
                                   particles=particles, &
-                                  stride=section_get_ivals(dft_section, key_without_dft_prefix // "%STRIDE"), mpi_io=mpi_io)
+                                  stride=section_get_ivals(dft_section, key_without_dft_prefix//"%STRIDE"), mpi_io=mpi_io)
                CALL cp_print_key_finished_output(unit_nr, logger, input, &
                                                  e_density_section%section_key, mpi_io=mpi_io)
             END IF
@@ -2502,7 +2501,7 @@ CONTAINS
                      TRIM(filename)
                END IF
                CALL cp_pw_to_cube(rho_elec_rspace, unit_nr, "SUM OF ALPHA AND BETA DENSITY", &
-                                  particles=particles, stride=section_get_ivals(dft_section, key_without_dft_prefix // "%STRIDE"), &
+                                  particles=particles, stride=section_get_ivals(dft_section, key_without_dft_prefix//"%STRIDE"), &
                                   mpi_io=mpi_io)
                CALL cp_print_key_finished_output(unit_nr, logger, input, &
                                                  e_density_section%section_key, mpi_io=mpi_io)
@@ -2526,7 +2525,7 @@ CONTAINS
                END IF
                CALL cp_pw_to_cube(rho_elec_rspace, unit_nr, "SPIN DENSITY", &
                                   particles=particles, &
-                                  stride=section_get_ivals(dft_section, key_without_dft_prefix // "%STRIDE"), mpi_io=mpi_io)
+                                  stride=section_get_ivals(dft_section, key_without_dft_prefix//"%STRIDE"), mpi_io=mpi_io)
                CALL cp_print_key_finished_output(unit_nr, logger, input, &
                                                  e_density_section%section_key, mpi_io=mpi_io)
                CALL auxbas_pw_pool%give_back_pw(rho_elec_rspace)
@@ -2549,7 +2548,7 @@ CONTAINS
                END IF
                CALL cp_pw_to_cube(rho_r(1), unit_nr, "ELECTRON DENSITY", &
                                   particles=particles, &
-                                  stride=section_get_ivals(dft_section, key_without_dft_prefix // "%STRIDE"), mpi_io=mpi_io)
+                                  stride=section_get_ivals(dft_section, key_without_dft_prefix//"%STRIDE"), mpi_io=mpi_io)
                CALL cp_print_key_finished_output(unit_nr, logger, input, &
                                                  e_density_section%section_key, mpi_io=mpi_io)
             END IF ! nspins
@@ -2604,7 +2603,7 @@ CONTAINS
                   "Total electronic charge (R-space):", rho_total_rspace
             END IF
             CALL cp_pw_to_cube(rho_elec_rspace, unit_nr, "ELECTRON DENSITY", &
-                               particles=particles, stride=section_get_ivals(dft_section, key_without_dft_prefix // "%STRIDE"), &
+                               particles=particles, stride=section_get_ivals(dft_section, key_without_dft_prefix//"%STRIDE"), &
                                mpi_io=mpi_io)
             CALL cp_print_key_finished_output(unit_nr, logger, input, &
                                               e_density_section%section_key, mpi_io=mpi_io)
@@ -2647,7 +2646,7 @@ CONTAINS
             END IF
             CALL cp_pw_to_cube(rho_elec_rspace, unit_nr, "SPIN DENSITY", &
                                particles=particles, &
-                               stride=section_get_ivals(dft_section, key_without_dft_prefix // "%STRIDE"), mpi_io=mpi_io)
+                               stride=section_get_ivals(dft_section, key_without_dft_prefix//"%STRIDE"), mpi_io=mpi_io)
             CALL cp_print_key_finished_output(unit_nr, logger, input, &
                                               e_density_section%section_key, mpi_io=mpi_io)
             END IF ! nspins
