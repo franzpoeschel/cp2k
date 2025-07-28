@@ -217,45 +217,80 @@ MODULE qs_scf_post_gpw
 
    PUBLIC :: make_lumo_gpw
 
-   INTEGER, PARAMETER :: grid_output_cubes = 1, grid_output_openpmd = 2
    CHARACTER(len=*), PARAMETER :: str_mo_cubes = "PRINT%MO_CUBES", str_mo_openpmd = "PRINT%MO_OPENPMD", str_elf_cubes = "DFT%PRINT%ELF_CUBE", str_elf_openpmd = "DFT%PRINT%ELF_OPENPMD", str_e_density_cubes = "DFT%PRINT%E_DENSITY_CUBE", str_e_density_openpmd = "DFT%PRINT%E_DENSITY_OPENPMD"
 
+   INTEGER, PARAMETER :: grid_output_cubes = 1, grid_output_openpmd = 2
    TYPE cp_section_key
       CHARACTER(len=default_string_length) :: section_key
       INTEGER :: grid_output
       LOGICAL :: do_output
-      LOGICAL :: do_cubes
-      LOGICAL :: do_openpmd
+   CONTAINS
+      PROCEDURE, PUBLIC :: print_key_unit_nr => cp_forward_print_key_unit_nr
    END TYPE
 
 ! **************************************************************************************************
 
 CONTAINS
 
+   FUNCTION cp_forward_print_key_unit_nr(self, logger, basis_section, print_key_path, extension, &
+                                         middle_name, local, log_filename, ignore_should_output, file_form, file_position, &
+                                         file_action, file_status, do_backup, on_file, is_new_file, mpi_io, &
+                                         fout, openpmd_basename) RESULT(res)
+      CLASS(cp_section_key), INTENT(IN)                  :: self
+      TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(section_vals_type), INTENT(IN)                :: basis_section
+      CHARACTER(len=*), INTENT(IN), OPTIONAL             :: print_key_path
+      CHARACTER(len=*), INTENT(IN)                       :: extension
+      CHARACTER(len=*), INTENT(IN), OPTIONAL             :: middle_name
+      LOGICAL, INTENT(IN), OPTIONAL                      :: local, log_filename, ignore_should_output
+      CHARACTER(len=*), INTENT(IN), OPTIONAL             :: file_form, file_position, file_action, &
+                                                            file_status
+      LOGICAL, INTENT(IN), OPTIONAL                      :: do_backup, on_file
+      LOGICAL, INTENT(OUT), OPTIONAL                     :: is_new_file
+      LOGICAL, INTENT(INOUT), OPTIONAL                   :: mpi_io
+      CHARACTER(len=default_path_length), INTENT(OUT), &
+         OPTIONAL                                        :: fout
+      CHARACTER(len=*), INTENT(IN), OPTIONAL             :: openpmd_basename
+      INTEGER                                            :: res
+
+#ifdef __OPENPMD
+      IF (self%grid_output == grid_output_cubes) THEN
+#endif
+         res = cp_print_key_unit_nr(logger, basis_section, print_key_path, extension=extension, &
+                                              middle_name=middle_name, local=local, log_filename=log_filename, ignore_should_output=ignore_should_output, file_form=file_form, file_position=file_position, file_action=file_action, file_status=file_status, do_backup=do_backup, on_file=on_file, is_new_file=is_new_file, mpi_io=mpi_io, fout=fout)
+#ifdef __OPENPMD
+       ELSE
+         res = cp_openpmd_print_key_unit_nr(logger, basis_section, print_key_path, &
+                                                      middle_name=middle_name, log_filename=log_filename, ignore_should_output=ignore_should_output, &
+                                                      mpi_io=mpi_io, fout=fout, openpmd_basename=openpmd_basename)
+       END IF
+#endif
+   END FUNCTION
+
    FUNCTION cube_or_openpmd(input, str_cubes, str_openpmd, logger) RESULT(res)
       TYPE(section_vals_type), POINTER                   :: input
       CHARACTER(len=*), INTENT(IN) :: str_cubes, str_openpmd
       TYPE(cp_logger_type), POINTER  :: logger
       TYPE(cp_section_key) :: res
+      LOGICAL :: do_openpmd, do_cubes
 
-      res%do_cubes = BTEST(cp_print_key_should_output(logger%iter_info, input, &
+      do_cubes = BTEST(cp_print_key_should_output(logger%iter_info, input, &
                                                       str_elf_cubes), cp_p_file)
 #ifdef __OPENPMD
-      res%do_openpmd = BTEST(cp_print_key_should_output(logger%iter_info, input, &
+      do_openpmd = BTEST(cp_print_key_should_output(logger%iter_info, input, &
                                                         str_elf_openpmd), cp_p_file)
-      res%do_output = res%do_cubes .OR. res%do_openpmd
-      IF (res%do_openpmd) THEN
+      CPASSERT(.NOT. (do_cubes .AND. do_openpmd))
+      res%do_output = do_cubes .OR. do_openpmd
+      IF (do_openpmd) THEN
          res%grid_output = grid_output_openpmd
          res%section_key = TRIM(ADJUSTL(str_openpmd))
       ELSE
          res%grid_output = grid_output_cubes
          res%section_key = TRIM(ADJUSTL(str_cubes))
       END IF
-      CPASSERT(.NOT. (res%do_cubes .AND. res%do_openpmd))
 #else
-      res%do_output = res%do_cubes
+      res%do_output = do_cubes
       res%grid_output = grid_output_cubes
-      res%do_openpmd = .FALSE.
       res%section_key = TRIM(ADJUSTL(str_cubes))
 #endif
    END FUNCTION
@@ -1645,10 +1680,11 @@ CONTAINS
                WRITE (filename, '(a5,I1.1)') "ELF_S", ispin
                WRITE (title, *) "ELF spin ", ispin
                mpi_io = .TRUE.
+               unit_nr = elf_section_key%print_key_unit_nr(&
+                  logger, input, elf_section_key%section_key, extension=".cube", &
+                  middle_name=TRIM(filename), file_position=my_pos_cube, log_filename=.FALSE., &
+                  mpi_io=mpi_io, fout=mpi_filename, openpmd_basename="dft-elf")
                IF (elf_section_key%grid_output == grid_output_cubes) THEN
-                  unit_nr = cp_print_key_unit_nr(logger, input, elf_section_key%section_key, extension=".cube", &
-                                                 middle_name=TRIM(filename), file_position=my_pos_cube, log_filename=.FALSE., &
-                                                 mpi_io=mpi_io, fout=mpi_filename)
                   IF (output_unit > 0) THEN
                      IF (.NOT. mpi_io) THEN
                         INQUIRE (UNIT=unit_nr, NAME=filename)
@@ -1664,9 +1700,6 @@ CONTAINS
                                      stride=section_get_ivals(elf_section, "STRIDE"), mpi_io=mpi_io)
                   CALL cp_print_key_finished_output(unit_nr, logger, input, elf_section_key%section_key, mpi_io=mpi_io)
                ELSE
-                  unit_nr = cp_openpmd_print_key_unit_nr(logger, input, elf_section_key%section_key, &
-                                                      middle_name=TRIM(filename), log_filename=.FALSE., &
-                                                         mpi_io=mpi_io, openpmd_basename="dft-elf", fout=filename)
                   IF (output_unit > 0) THEN
                      WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
                         "ELF is written in openPMD file format to the file:", &
@@ -2330,17 +2363,10 @@ CONTAINS
             rho_total_rspace = pw_integrate_function(rho_elec_rspace, isign=-1)
             filename = "TOTAL_ELECTRON_DENSITY"
             mpi_io = .TRUE.
-            IF (e_density_section%grid_output == grid_output_cubes) THEN
-               unit_nr = cp_print_key_unit_nr(logger, input, e_density_section%section_key, &
-                                             extension=".cube", middle_name=TRIM(filename), &
-                                             file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
-                                             fout=mpi_filename)
-            ELSE
-               unit_nr = cp_openpmd_print_key_unit_nr(logger, input, e_density_section%section_key, &
-                                             middle_name=TRIM(filename), openpmd_basename="dft-e-density", &
-                                             log_filename=.FALSE., mpi_io=mpi_io, &
-                                             fout=mpi_filename)
-            END IF
+            unit_nr = e_density_section%print_key_unit_nr(logger, input, e_density_section%section_key, &
+                                          extension=".cube", middle_name=TRIM(filename), &
+                                          file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
+                                          fout=mpi_filename, openpmd_basename="dft-e-density")
             IF (output_unit > 0) THEN
                IF (.NOT. mpi_io) THEN
                   INQUIRE (UNIT=unit_nr, NAME=filename)
