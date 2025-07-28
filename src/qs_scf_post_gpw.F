@@ -226,6 +226,8 @@ MODULE qs_scf_post_gpw
       LOGICAL :: do_output
    CONTAINS
       PROCEDURE, PUBLIC :: print_key_unit_nr => cp_forward_print_key_unit_nr
+      PROCEDURE, PUBLIC :: write_pw => cp_forward_write_pw
+      PROCEDURE, PUBLIC :: print_key_finished_output => cp_forward_print_key_finished_output
    END TYPE
 
 ! **************************************************************************************************
@@ -266,6 +268,47 @@ CONTAINS
        END IF
 #endif
    END FUNCTION
+
+   SUBROUTINE cp_forward_write_pw(self, pw, unit_nr, title, particles, stride, zero_tails, silent, mpi_io)
+      CLASS(cp_section_key), INTENT(IN)                  :: self
+      TYPE(pw_r3d_rs_type), INTENT(IN)                   :: pw
+      INTEGER, INTENT(IN)                                :: unit_nr
+      CHARACTER(*), INTENT(IN), OPTIONAL                 :: title
+      TYPE(particle_list_type), POINTER                  :: particles
+      INTEGER, DIMENSION(:), OPTIONAL, POINTER           :: stride
+      LOGICAL, INTENT(IN), OPTIONAL                      :: zero_tails, silent, mpi_io
+#ifdef __OPENPMD
+      IF (self%grid_output == grid_output_cubes) THEN
+#endif
+         CALL cp_pw_to_cube(pw, unit_nr, title, particles, stride, zero_tails, silent, mpi_io)
+#ifdef __OPENPMD
+       ELSE
+         CALL cp_pw_to_openpmd(pw, unit_nr, title, particles, stride, zero_tails, silent, mpi_io)
+       END IF
+#endif
+   END SUBROUTINE
+
+   SUBROUTINE cp_forward_print_key_finished_output(self, unit_nr, logger, basis_section, &
+                                          print_key_path, local, ignore_should_output, on_file, &
+                                          mpi_io)
+   CLASS(cp_section_key), INTENT(IN)                  :: self
+   INTEGER, INTENT(INOUT)                             :: unit_nr
+   TYPE(cp_logger_type), POINTER                      :: logger
+   TYPE(section_vals_type), INTENT(IN)                :: basis_section
+   CHARACTER(len=*), INTENT(IN), OPTIONAL             :: print_key_path
+   LOGICAL, INTENT(IN), OPTIONAL                      :: local, ignore_should_output, on_file, &
+                                                         mpi_io
+
+#ifdef __OPENPMD
+      IF (self%grid_output == grid_output_cubes) THEN
+#endif
+         CALL cp_print_key_finished_output(unit_nr, logger, basis_section, print_key_path, local, ignore_should_output, on_file, mpi_io)
+#ifdef __OPENPMD
+       ELSE
+         CALL cp_openpmd_print_key_finished_output(unit_nr, logger, basis_section, print_key_path, local, ignore_should_output, mpi_io)
+       END IF
+#endif
+   END SUBROUTINE
 
    FUNCTION cube_or_openpmd(input, str_cubes, str_openpmd, logger) RESULT(res)
       TYPE(section_vals_type), POINTER                   :: input
@@ -1684,32 +1727,26 @@ CONTAINS
                   logger, input, elf_section_key%section_key, extension=".cube", &
                   middle_name=TRIM(filename), file_position=my_pos_cube, log_filename=.FALSE., &
                   mpi_io=mpi_io, fout=mpi_filename, openpmd_basename="dft-elf")
-               IF (elf_section_key%grid_output == grid_output_cubes) THEN
-                  IF (output_unit > 0) THEN
-                     IF (.NOT. mpi_io) THEN
-                        INQUIRE (UNIT=unit_nr, NAME=filename)
-                     ELSE
-                        filename = mpi_filename
-                     END IF
+               IF (output_unit > 0) THEN
+                  IF (.NOT. mpi_io) THEN
+                     INQUIRE (UNIT=unit_nr, NAME=filename)
+                  ELSE
+                     filename = mpi_filename
+                  END IF
+                  IF (elf_section_key%grid_output == grid_output_cubes) THEN
                      WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
                         "ELF is written in cube file format to the file:", &
                         TRIM(filename)
-                  END IF
-
-                  CALL cp_pw_to_cube(elf_r(ispin), unit_nr, title, particles=particles, &
-                                     stride=section_get_ivals(elf_section, "STRIDE"), mpi_io=mpi_io)
-                  CALL cp_print_key_finished_output(unit_nr, logger, input, elf_section_key%section_key, mpi_io=mpi_io)
-               ELSE
-                  IF (output_unit > 0) THEN
+                  ELSE
                      WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
                         "ELF is written in openPMD file format to the file:", &
                         TRIM(filename)
                   END IF
-
-                  CALL cp_pw_to_openpmd(elf_r(ispin), unit_nr, title, particles=particles, &
-                                        stride=section_get_ivals(elf_section, "STRIDE"), mpi_io=mpi_io)
-                  CALL cp_openpmd_print_key_finished_output(unit_nr, logger, input, elf_section_key%section_key, mpi_io=mpi_io)
                END IF
+
+               CALL elf_section_key%write_pw(elf_r(ispin), unit_nr, title, particles=particles, &
+                                    stride=section_get_ivals(elf_section, "STRIDE"), mpi_io=mpi_io)
+               CALL elf_section_key%print_key_finished_output(unit_nr, logger, input, elf_section_key%section_key, mpi_io=mpi_io)
 
                CALL auxbas_pw_pool%give_back_pw(elf_r(ispin))
             END DO
@@ -2383,19 +2420,11 @@ CONTAINS
                   "Total electronic charge (G-space):", rho_total, &
                   "Total electronic charge (R-space):", rho_total_rspace
             END IF
-            IF (e_density_section%grid_output == grid_output_cubes) THEN
-               CALL cp_pw_to_cube(rho_elec_rspace, unit_nr, "TOTAL ELECTRON DENSITY", &
-                                 particles=particles, &
-                                 stride=section_get_ivals(dft_section, key_without_dft_prefix // "%STRIDE"), mpi_io=mpi_io)
-               CALL cp_print_key_finished_output(unit_nr, logger, input, &
-                                                e_density_section%section_key, mpi_io=mpi_io)
-            ELSE
-               CALL cp_pw_to_openpmd(rho_elec_rspace, unit_nr, "TOTAL ELECTRON DENSITY", &
-                                 particles=particles, &
-                                 stride=section_get_ivals(dft_section, key_without_dft_prefix // "%STRIDE"), mpi_io=mpi_io)
-               CALL cp_openpmd_print_key_finished_output(unit_nr, logger, input, &
-                                                e_density_section%section_key, mpi_io=mpi_io)
-            END IF
+            CALL e_density_section%write_pw(rho_elec_rspace, unit_nr, "TOTAL ELECTRON DENSITY", &
+                              particles=particles, &
+                              stride=section_get_ivals(dft_section, key_without_dft_prefix // "%STRIDE"), mpi_io=mpi_io)
+            CALL e_density_section%print_key_finished_output(unit_nr, logger, input, &
+                                             e_density_section%section_key, mpi_io=mpi_io)
             ! Print total spin density for spin-polarized systems
             IF (dft_control%nspins > 1) THEN
                CALL pw_zero(rho_elec_gspace)
