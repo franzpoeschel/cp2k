@@ -115,6 +115,9 @@ CONTAINS
 
    ! **************************************************************************************************
    !> \brief Convert a dense matrix to dbcsr format using a template matrix
+   !         If the input matrix contains data wherever the template matrix does not,
+   !         this data will be lost. Look to dense_to_dbcsr_dense() for writeback of the full dense
+   !         matrix.
    !> \param dense_mat Input dense matrix
    !> \param template_dbcsr Template dbcsr matrix for structure
    !> \param dbcsr_mat Output dbcsr matrix
@@ -125,7 +128,7 @@ CONTAINS
 !> \param template_dbcsr ...
 !> \return ...
 ! **************************************************************************************************
-   FUNCTION dense_to_dbcsr(dense_mat, template_dbcsr) RESULT(dbcsr_mat)
+   FUNCTION dense_to_dbcsr_sparse(dense_mat, template_dbcsr) RESULT(dbcsr_mat)
       USE cp_dbcsr_api, ONLY: dbcsr_get_info, dbcsr_iterator_type, &
                               dbcsr_iterator_start, dbcsr_iterator_next_block, &
                               dbcsr_iterator_blocks_left, dbcsr_iterator_stop, &
@@ -177,7 +180,7 @@ CONTAINS
 
       DEALLOCATE (r_offset, c_offset)
 
-   END FUNCTION dense_to_dbcsr
+   END FUNCTION dense_to_dbcsr_sparse
 
 ! **************************************************************************************************
 !> \brief Convert a dense matrix to a DBCSR matrix with full dense block structure.
