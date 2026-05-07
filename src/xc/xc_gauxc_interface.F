@@ -317,7 +317,7 @@ CONTAINS
          CALL get_atomic_kind(atomic_kind, kind_number=ikind)
          gto_basis => basis_set_list(ikind)%gto_basis_set
          CPASSERT(ASSOCIATED(gto_basis))
-         CALL write_gto_basis_set(gto_basis, 6, "–––––GAUXC-CREATE-BASISSET–––––")
+         ! CALL write_gto_basis_set(gto_basis, 6, "–––––GAUXC-CREATE-BASISSET–––––")
          nshell_total = nshell_total + SUM(gto_basis%nshell)
       END DO
 
