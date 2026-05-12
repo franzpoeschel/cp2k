@@ -598,7 +598,7 @@ CONTAINS
 
          IF (dft_control%use_gauxc) THEN
             IF (calculate_forces) THEN
-               CPABORT("SKALA functional does not support force calculations. Use RUN_TYPE ENERGY or RUN_TYPE SP instead.")
+               CPABORT("GauXC/SKALA does not support forces. Use RUN_TYPE ENERGY or RUN_TYPE SP instead.")
             END IF
             CALL apply_gauxc(qs_env, xc_section)
          ELSE
@@ -729,6 +729,15 @@ CONTAINS
                                    v_rspace_new, v_rspace_new_aux_fit, v_tau_rspace, v_tau_rspace_aux_fit, &
                                    v_sic_rspace, v_spin_ddapc_rest_r, v_sccs_rspace, v_rspace_embed, &
                                    cdft_control, calculate_forces)
+
+         IF (dft_control%use_gauxc) THEN
+            CALL get_qs_env(qs_env=qs_env, matrix_vxc=matrix_vxc)
+            CPASSERT(ASSOCIATED(matrix_vxc))
+            CPASSERT(nimages == 1)
+            DO ispin = 1, nspins
+               CALL dbcsr_add(ks_matrix(ispin, 1)%matrix, matrix_vxc(ispin)%matrix, 1.0_dp, 1.0_dp)
+            END DO
+         END IF
 
          IF (calculate_forces) THEN
             IF (gapw_xc) THEN
