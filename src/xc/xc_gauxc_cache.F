@@ -39,13 +39,14 @@ MODULE xc_gauxc_cache
       CHARACTER(LEN=default_string_length)         :: pruning_scheme = ""
       CHARACTER(LEN=default_string_length)         :: lb_exec_space = ""
       CHARACTER(LEN=default_string_length)         :: int_exec_space = ""
-      CHARACTER(LEN=default_path_length)           :: model_name = ""
+      CHARACTER(LEN=default_path_length)           :: model_eval_name = ""
       CHARACTER(len=default_string_length)         :: lwd_kernel = ""
       LOGICAL                                      :: use_mpi_runtime = .FALSE.
       LOGICAL                                      :: use_gradient_mpi_runtime = .FALSE.
       LOGICAL                                      :: use_self_runtime = .FALSE.
       LOGICAL                                      :: use_gradient_self_runtime = .FALSE.
       LOGICAL                                      :: use_fd_gradient = .FALSE.
+      LOGICAL                                      :: use_gauxc_model = .FALSE.
    END TYPE cp_gauxc_cache_params
 
    TYPE, extends(cp_gauxc_cache_params)            :: cp_gauxc_cache_type
@@ -160,9 +161,11 @@ CONTAINS
             "basis functions beyond f shells. The upstream analytical GauXC gradient path is "// &
             "not yet reliable for this case.")
       END IF
-      IF (params%use_self_runtime) THEN
+      IF (params%use_self_runtime .OR. .NOT. params%use_gauxc_model) THEN
          ! SKALA currently needs a replicated molecular runtime for reproducible
          ! open-shell densities across CP2K MPI ranks.
+         ! Conventional GauXC also uses a replicated runtime here: CP2K has
+         ! already allreduced the dense AO density matrix on every rank.
          cache%grid = gauxc_create_grid( &
                       cache%molecule, &
                       cache%basisset, &
@@ -238,7 +241,7 @@ CONTAINS
       cache%pruning_scheme = TRIM(params%pruning_scheme)
       cache%lb_exec_space = TRIM(params%lb_exec_space)
       cache%int_exec_space = TRIM(params%int_exec_space)
-      cache%model_name = TRIM(params%model_name)
+      cache%model_eval_name = TRIM(params%model_eval_name)
       cache%lwd_kernel = TRIM(params%lwd_kernel)
       cache%use_gradient_mpi_runtime = params%use_gradient_mpi_runtime
       cache%use_mpi_runtime = params%use_mpi_runtime
@@ -381,7 +384,7 @@ CONTAINS
       IF (TRIM(cache%pruning_scheme) /= TRIM(params%pruning_scheme)) RETURN
       IF (TRIM(cache%lb_exec_space) /= TRIM(params%lb_exec_space)) RETURN
       IF (TRIM(cache%int_exec_space) /= TRIM(params%int_exec_space)) RETURN
-      IF (TRIM(cache%model_name) /= TRIM(params%model_name)) RETURN
+      IF (TRIM(cache%model_eval_name) /= TRIM(params%model_eval_name)) RETURN
       IF (TRIM(cache%lwd_kernel) /= TRIM(params%lwd_kernel)) RETURN
       IF (cache%use_self_runtime .NEQV. params%use_self_runtime) RETURN
       IF (cache%use_mpi_runtime .NEQV. params%use_mpi_runtime) RETURN
