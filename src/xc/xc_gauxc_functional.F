@@ -963,30 +963,21 @@ CONTAINS
          "Use an additive PAIR_POTENTIAL dispersion correction or disable GauXC."
       REAL(KIND=dp), PARAMETER :: gapw_fd_gradient_dx = 1.0E-4_dp
 
-      CHARACTER(len=default_path_length)                 :: model_key, model_name, output_path
-      CHARACTER(len=default_string_length) :: grid_key, grid_type, int_exec_space, lb_exec_space, &
-         lwd_kernel, onedft_gradient_runtime, onedft_gradient_runtime_key, pruning_key, &
-         pruning_scheme, radial_quadrature, skala_runtime, skala_runtime_key, xc_fun_name
-      INTEGER                                            :: batch_size, env_status, img, ispin, &
-                                                            natom, nimages, nspins, &
+      CHARACTER(len=default_path_length)                 :: model_key, output_path
+      CHARACTER(len=default_string_length) :: grid_key, onedft_gradient_runtime, &
+         onedft_gradient_runtime_key, pruning_key, skala_runtime, skala_runtime_key
+      INTEGER                                            :: env_status, img, ispin, nimages, &
                                                             onedft_atom_chunk_size
       LOGICAL :: do_kpoints, gapw_method, gapw_paw_pseudopotentials, gapw_pseudopotentials, &
          grid_explicit, hdf5_output, is_periodic, molecular_virial, molecular_virial_debug, &
          need_xc_gradient, onedft_atom_chunk_size_explicit, periodic_reference, pruning_explicit, &
-         use_fd_gradient, use_gradient_mpi_runtime, use_gradient_self_runtime, use_onedft, &
-         use_self_runtime, use_skala_model, write_hdf5_output
-      REAL(KIND=dp)                                      :: device_runtime_fill_fraction, &
-                                                            molecular_virial_debug_dx
+         use_fd_gradient, use_gradient_mpi_runtime, use_onedft, use_skala_model, write_hdf5_output
+      REAL(KIND=dp)                                      :: molecular_virial_debug_dx
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: density_scalar, density_zeta
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cell_type), POINTER                           :: cell
-      TYPE(cp_gauxc_basisset_type)                       :: gauxc_basis
       TYPE(cp_gauxc_cache_params)                        :: params
       TYPE(cp_gauxc_cache_type), POINTER                 :: cache
-      TYPE(cp_gauxc_grid_type)                           :: gauxc_gradient_grid_result, &
-                                                            gauxc_grid_result
-      TYPE(cp_gauxc_integrator_type) :: gauxc_gradient_integrator_result, gauxc_integrator_result
-      TYPE(cp_gauxc_molecule_type)                       :: gauxc_mol
       TYPE(cp_gauxc_status_type)                         :: gauxc_status
       TYPE(cp_gauxc_xc_gradient_type)                    :: exc_grad
       TYPE(cp_gauxc_xc_type)                             :: gauxc_xc_result
@@ -1029,7 +1020,7 @@ CONTAINS
          energy=energy, &
          ks_env=ks_env, &
          matrix_vxc=matrix_vxc, &
-         natom=natom, &
+         natom=params%natom, &
          atomic_kind_set=atomic_kind_set, &
          force=force, &
          para_env=para_env, &
@@ -1056,7 +1047,7 @@ CONTAINS
          rho_ao_kp=rho_ao)
 
       nimages = dft_control%nimages
-      nspins = dft_control%nspins
+      params%nspins = dft_control%nspins
       is_periodic = .FALSE.
       IF (ASSOCIATED(cell)) is_periodic = ANY(cell%perd /= 0)
 
@@ -1071,33 +1062,33 @@ CONTAINS
       CALL section_vals_val_get( &
          gauxc_functional_section, &
          "FUNCTIONAL", &
-         c_val=xc_fun_name)
+         c_val=params%xc_fun_name)
       CALL section_vals_val_get( &
          gauxc_functional_section, &
          "MODEL", &
-         c_val=model_name)
+         c_val=params%model_name)
       CALL section_vals_val_get( &
          gauxc_functional_section, &
          "GRID", &
-         c_val=grid_type, &
+         c_val=params%grid_type, &
          explicit=grid_explicit)
       CALL section_vals_val_get( &
          gauxc_functional_section, &
          "RADIAL_QUADRATURE", &
-         c_val=radial_quadrature)
+         c_val=params%radial_quadrature)
       CALL section_vals_val_get( &
          gauxc_functional_section, &
          "PRUNING_SCHEME", &
-         c_val=pruning_scheme, &
+         c_val=params%pruning_scheme, &
          explicit=pruning_explicit)
       CALL section_vals_val_get( &
          gauxc_functional_section, &
          "BATCH_SIZE", &
-         i_val=batch_size)
+         i_val=params%batch_size)
       CALL section_vals_val_get( &
          gauxc_functional_section, &
          "DEVICE_RUNTIME_FILL_FRACTION", &
-         r_val=device_runtime_fill_fraction)
+         r_val=params%device_runtime_fill_fraction)
       CALL section_vals_val_get( &
          gauxc_functional_section, &
          "ONEDFT_ATOM_CHUNK_SIZE", &
@@ -1122,15 +1113,15 @@ CONTAINS
       CALL section_vals_val_get( &
          gauxc_functional_section, &
          "LB_EXECUTION_SPACE", &
-         c_val=lb_exec_space)
+         c_val=params%lb_exec_space)
       CALL section_vals_val_get( &
          gauxc_functional_section, &
          "INT_EXECUTION_SPACE", &
-         c_val=int_exec_space)
+         c_val=params%int_exec_space)
       CALL section_vals_val_get( &
          gauxc_functional_section, &
          "LWD_KERNEL", &
-         c_val=lwd_kernel)
+         c_val=params%lwd_kernel)
       CALL section_vals_val_get( &
          gauxc_functional_section, &
          "SKALA_RUNTIME", &
@@ -1144,7 +1135,7 @@ CONTAINS
          "OUTPUT_PATH", &
          c_val=output_path)
 
-      model_key = ADJUSTL(model_name)
+      model_key = ADJUSTL(params%model_name)
       CALL uppercase(model_key)
       skala_runtime_key = ADJUSTL(skala_runtime)
       CALL uppercase(skala_runtime_key)
@@ -1169,7 +1160,7 @@ CONTAINS
                "XC correction is used for those regular-grid kinds.")
          END IF
       END IF
-      IF (device_runtime_fill_fraction <= 0.0_dp .OR. device_runtime_fill_fraction > 1.0_dp) THEN
+      IF (params%device_runtime_fill_fraction <= 0.0_dp .OR. params%device_runtime_fill_fraction > 1.0_dp) THEN
          CALL cp_abort(__LOCATION__, &
                        "GAUXC%DEVICE_RUNTIME_FILL_FRACTION must be > 0 and <= 1.")
       END IF
@@ -1207,11 +1198,11 @@ CONTAINS
       IF (use_onedft) THEN
          CALL set_gauxc_onedft_atom_chunk_env( &
             onedft_atom_chunk_size, onedft_atom_chunk_size_explicit)
-         IF (.NOT. grid_explicit) grid_type = "SUPERFINE"
-         IF (.NOT. pruning_explicit) pruning_scheme = "UNPRUNED"
+         IF (.NOT. grid_explicit) params%grid_type = "SUPERFINE"
+         IF (.NOT. pruning_explicit) params%pruning_scheme = "UNPRUNED"
 
-         grid_key = ADJUSTL(grid_type)
-         pruning_key = ADJUSTL(pruning_scheme)
+         grid_key = ADJUSTL(params%grid_type)
+         pruning_key = ADJUSTL(params%pruning_scheme)
          CALL uppercase(grid_key)
          CALL uppercase(pruning_key)
          IF (use_skala_model .AND. need_xc_gradient .AND. &
@@ -1222,39 +1213,39 @@ CONTAINS
                "Use GRID SUPERFINE and PRUNING_SCHEME UNPRUNED for quantitative force checks.")
          END IF
          IF (TRIM(model_key) == "SKALA") THEN
-            CALL GET_ENVIRONMENT_VARIABLE("GAUXC_SKALA_MODEL", model_name, STATUS=env_status)
-            IF (env_status /= 0 .OR. LEN_TRIM(model_name) == 0) THEN
+            CALL GET_ENVIRONMENT_VARIABLE("GAUXC_SKALA_MODEL", params%model_name, STATUS=env_status)
+            IF (env_status /= 0 .OR. LEN_TRIM(params%model_name) == 0) THEN
                CPABORT("MODEL SKALA requires the GAUXC_SKALA_MODEL environment variable")
             END IF
          END IF
       END IF
       SELECT CASE (TRIM(skala_runtime_key))
       CASE ("AUTO")
-         use_self_runtime = use_skala_model .AND. para_env%num_pe > 1 .AND. nspins > 1
+         params%use_self_runtime = use_skala_model .AND. para_env%num_pe > 1 .AND. params%nspins > 1
       CASE ("MPI")
-         use_self_runtime = .FALSE.
+         params%use_self_runtime = .FALSE.
       CASE ("SELF")
-         use_self_runtime = use_skala_model .AND. para_env%num_pe > 1
+         params%use_self_runtime = use_skala_model .AND. para_env%num_pe > 1
       CASE DEFAULT
          CALL cp_abort(__LOCATION__, "Unknown GAUXC%SKALA_RUNTIME value.")
       END SELECT
-      IF (.NOT. use_skala_model) use_self_runtime = .FALSE.
+      IF (.NOT. use_skala_model) params%use_self_runtime = .FALSE.
       SELECT CASE (TRIM(onedft_gradient_runtime_key))
       CASE ("AUTO", "SELF")
          use_gradient_mpi_runtime = .FALSE.
-         use_gradient_self_runtime = need_xc_gradient .AND. use_onedft .AND. &
-                                     para_env%num_pe > 1 .AND. .NOT. use_self_runtime
+         params%use_gradient_self_runtime = need_xc_gradient .AND. use_onedft .AND. &
+                                            para_env%num_pe > 1 .AND. .NOT. params%use_self_runtime
       CASE ("MPI")
          use_gradient_mpi_runtime = need_xc_gradient .AND. use_onedft .AND. para_env%num_pe > 1
-         use_gradient_self_runtime = .FALSE.
+         params%use_gradient_self_runtime = .FALSE.
       CASE DEFAULT
          CALL cp_abort(__LOCATION__, "Unknown GAUXC%ONEDFT_GRADIENT_RUNTIME value.")
       END SELECT
       IF (.NOT. use_onedft) THEN
          use_gradient_mpi_runtime = .FALSE.
-         use_gradient_self_runtime = .FALSE.
+         params%use_gradient_self_runtime = .FALSE.
       END IF
-      IF (use_skala_model .AND. para_env%num_pe > 1 .AND. .NOT. use_self_runtime .AND. &
+      IF (use_skala_model .AND. para_env%num_pe > 1 .AND. .NOT. params%use_self_runtime .AND. &
           para_env%mepos == 0 .AND. ASSOCIATED(scf_env)) THEN
          IF (scf_env%iter_count == 1) THEN
             CALL cp_warn( &
@@ -1284,14 +1275,14 @@ CONTAINS
       END IF
       IF (write_hdf5_output) THEN
          CALL gauxc_write_molecule_hdf5( &
-            gauxc_mol, &
+            cache%molecule, &
             output_path, &
             "molecule.h5", &
             "molecule", &
             gauxc_status)
          CALL gauxc_check_status(gauxc_status)
          CALL gauxc_write_basisset_hdf5( &
-            gauxc_basis, &
+            cache%basisset, &
             output_path, &
             "basisset.h5", &
             "basisset", &
@@ -1306,7 +1297,7 @@ CONTAINS
       energy%exc = 0
 
       IF (ASSOCIATED(matrix_vxc)) CALL dbcsr_deallocate_matrix_set(matrix_vxc)
-      CALL dbcsr_allocate_matrix_set(matrix_vxc, nspins)
+      CALL dbcsr_allocate_matrix_set(matrix_vxc, params%nspins)
 
       DO img = 1, nimages
          IF (img > 1) THEN
@@ -1314,38 +1305,38 @@ CONTAINS
          END IF
          CALL dbcsr_to_dense(rho_ao(1, img), density_scalar)
          CALL para_env%sum(density_scalar)
-         IF (nspins == 1) THEN
+         IF (params%nspins == 1) THEN
             gauxc_xc_result = gauxc_compute_xc( &
-                              gauxc_integrator_result, &
+                              cache%integrator, &
                               density_scalar, &
-                              nspins=nspins, &
+                              nspins=params%nspins, &
                               status=gauxc_status, &
-                              model=TRIM(model_name))
+                              model=TRIM(params%model_name))
             CALL gauxc_check_status(gauxc_status)
             IF (need_xc_gradient) THEN
                IF (use_fd_gradient) THEN
                   CALL gauxc_xc_gradient_fd( &
-                     particle_set, qs_kind_set, density_scalar, nspins, model_name, &
-                     xc_fun_name, grid_type, radial_quadrature, pruning_scheme, &
-                     lb_exec_space, int_exec_space, lwd_kernel, batch_size, &
-                     device_runtime_fill_fraction, gapw_fd_gradient_dx, para_env, &
+                     particle_set, qs_kind_set, density_scalar, params%nspins, params%model_name, &
+                     params%xc_fun_name, params%grid_type, params%radial_quadrature, params%pruning_scheme, &
+                     params%lb_exec_space, params%int_exec_space, params%lwd_kernel, params%batch_size, &
+                     params%device_runtime_fill_fraction, gapw_fd_gradient_dx, para_env, &
                      exc_grad%exc_grad)
-               ELSE IF (use_gradient_self_runtime) THEN
+               ELSE IF (params%use_gradient_self_runtime) THEN
                   exc_grad = gauxc_compute_xc_gradient( &
-                             gauxc_gradient_integrator_result, &
+                             cache%gradient_integrator, &
                              density_scalar, &
-                             nspins=nspins, &
-                             natom=natom, &
+                             nspins=params%nspins, &
+                             natom=params%natom, &
                              status=gauxc_status, &
-                             model=TRIM(model_name))
+                             model=TRIM(params%model_name))
                ELSE
                   exc_grad = gauxc_compute_xc_gradient( &
-                             gauxc_integrator_result, &
+                             cache%integrator, &
                              density_scalar, &
-                             nspins=nspins, &
-                             natom=natom, &
+                             nspins=params%nspins, &
+                             natom=params%natom, &
                              status=gauxc_status, &
-                             model=TRIM(model_name))
+                             model=TRIM(params%model_name))
                END IF
                CALL gauxc_check_status(gauxc_status)
                IF (calculate_forces) THEN
@@ -1360,15 +1351,15 @@ CONTAINS
                END IF
                IF (molecular_virial_debug) THEN
                   CALL debug_gauxc_molecular_virial( &
-                     exc_grad%exc_grad, particle_set, qs_kind_set, density_scalar, nspins, &
-                     model_name, xc_fun_name, grid_type, radial_quadrature, pruning_scheme, &
-                     lb_exec_space, int_exec_space, lwd_kernel, batch_size, &
-                     device_runtime_fill_fraction, molecular_virial_debug_dx, para_env)
+                     exc_grad%exc_grad, particle_set, qs_kind_set, density_scalar, params%nspins, &
+                     params%model_name, params%xc_fun_name, params%grid_type, params%radial_quadrature, params%pruning_scheme, &
+                     params%lb_exec_space, params%int_exec_space, params%lwd_kernel, params%batch_size, &
+                     params%device_runtime_fill_fraction, molecular_virial_debug_dx, para_env)
                END IF
                DEALLOCATE (exc_grad%exc_grad)
             END IF
          ELSE
-            CPASSERT(nspins == 2)
+            CPASSERT(params%nspins == 2)
             ! In here:
             ! scalar <- rho_ao(1, :) + rho_ao(2, :)
             ! zeta   <- rho_ao(1, :) - rho_ao(2, :)
@@ -1382,39 +1373,39 @@ CONTAINS
             ! This style lowers memory footprint.
             density_zeta(:, :) = density_scalar(:, :) - 2.0_dp*density_zeta(:, :)
             gauxc_xc_result = gauxc_compute_xc( &
-                              gauxc_integrator_result, &
+                              cache%integrator, &
                               density_scalar, &
                               density_zeta, &
-                              nspins, &
+                              params%nspins, &
                               gauxc_status, &
-                              model=TRIM(model_name))
+                              model=TRIM(params%model_name))
             CALL gauxc_check_status(gauxc_status)
             IF (need_xc_gradient) THEN
                IF (use_fd_gradient) THEN
                   CALL gauxc_xc_gradient_fd( &
-                     particle_set, qs_kind_set, density_scalar, nspins, model_name, &
-                     xc_fun_name, grid_type, radial_quadrature, pruning_scheme, &
-                     lb_exec_space, int_exec_space, lwd_kernel, batch_size, &
-                     device_runtime_fill_fraction, gapw_fd_gradient_dx, para_env, &
+                     particle_set, qs_kind_set, density_scalar, params%nspins, params%model_name, &
+                     params%xc_fun_name, params%grid_type, params%radial_quadrature, params%pruning_scheme, &
+                     params%lb_exec_space, params%int_exec_space, params%lwd_kernel, params%batch_size, &
+                     params%device_runtime_fill_fraction, gapw_fd_gradient_dx, para_env, &
                      exc_grad%exc_grad, density_zeta=density_zeta)
-               ELSE IF (use_gradient_self_runtime) THEN
+               ELSE IF (params%use_gradient_self_runtime) THEN
                   exc_grad = gauxc_compute_xc_gradient( &
-                             gauxc_gradient_integrator_result, &
+                             cache%gradient_integrator, &
                              density_scalar, &
                              density_zeta, &
-                             nspins, &
-                             natom, &
+                             params%nspins, &
+                             params%natom, &
                              gauxc_status, &
-                             model=TRIM(model_name))
+                             model=TRIM(params%model_name))
                ELSE
                   exc_grad = gauxc_compute_xc_gradient( &
-                             gauxc_integrator_result, &
+                             cache%integrator, &
                              density_scalar, &
                              density_zeta, &
-                             nspins, &
-                             natom, &
+                             params%nspins, &
+                             params%natom, &
                              gauxc_status, &
-                             model=TRIM(model_name))
+                             model=TRIM(params%model_name))
                END IF
                CALL gauxc_check_status(gauxc_status)
                IF (calculate_forces) THEN
@@ -1429,10 +1420,10 @@ CONTAINS
                END IF
                IF (molecular_virial_debug) THEN
                   CALL debug_gauxc_molecular_virial( &
-                     exc_grad%exc_grad, particle_set, qs_kind_set, density_scalar, nspins, &
-                     model_name, xc_fun_name, grid_type, radial_quadrature, pruning_scheme, &
-                     lb_exec_space, int_exec_space, lwd_kernel, batch_size, &
-                     device_runtime_fill_fraction, molecular_virial_debug_dx, para_env, &
+                     exc_grad%exc_grad, particle_set, qs_kind_set, density_scalar, params%nspins, &
+                     params%model_name, params%xc_fun_name, params%grid_type, params%radial_quadrature, params%pruning_scheme, &
+                     params%lb_exec_space, params%int_exec_space, params%lwd_kernel, params%batch_size, &
+                     params%device_runtime_fill_fraction, molecular_virial_debug_dx, para_env, &
                      density_zeta=density_zeta)
                END IF
                DEALLOCATE (exc_grad%exc_grad)
@@ -1441,14 +1432,14 @@ CONTAINS
 
          energy%exc = energy%exc + gauxc_xc_result%exc
 
-         IF (nspins == 1) THEN
+         IF (params%nspins == 1) THEN
             IF (img == 1) THEN
                matrix_vxc(1) = dense_to_dbcsr(gauxc_xc_result%vxc_scalar, rho_ao(1, img))
             ELSE
                CPABORT("UNIMPLEMENTED: Handling multiple result matrices in k-point integration")
             END IF
          ELSE
-            CPASSERT(nspins == 2)
+            CPASSERT(params%nspins == 2)
             ! Transform derivatives from total/spin density back to alpha/beta channels.
             vxc_zeta_tmp = dense_to_dbcsr(gauxc_xc_result%vxc_zeta, rho_ao(1, img))
             IF (img == 1) THEN
@@ -1475,24 +1466,9 @@ CONTAINS
       IF (ALLOCATED(gauxc_xc_result%vxc_zeta)) DEALLOCATE (gauxc_xc_result%vxc_zeta)
 
       CALL set_ks_env(ks_env, matrix_vxc=matrix_vxc)
-      DO ispin = 1, nspins
+      DO ispin = 1, params%nspins
          CALL dbcsr_finalize(matrix_vxc(ispin)%matrix)
       END DO
-
-      IF (use_gradient_self_runtime) THEN
-         CALL gauxc_destroy_integrator(gauxc_gradient_integrator_result, gauxc_status)
-         CALL gauxc_check_status(gauxc_status)
-         CALL gauxc_destroy_grid(gauxc_gradient_grid_result, gauxc_status)
-         CALL gauxc_check_status(gauxc_status)
-      END IF
-      CALL gauxc_destroy_integrator(gauxc_integrator_result, gauxc_status)
-      CALL gauxc_check_status(gauxc_status)
-      CALL gauxc_destroy_grid(gauxc_grid_result, gauxc_status)
-      CALL gauxc_check_status(gauxc_status)
-      CALL gauxc_destroy_basisset(gauxc_basis, gauxc_status)
-      CALL gauxc_check_status(gauxc_status)
-      CALL gauxc_destroy_molecule(gauxc_mol, gauxc_status)
-      CALL gauxc_check_status(gauxc_status)
 
    END SUBROUTINE apply_gauxc
 
