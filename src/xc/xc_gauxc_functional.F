@@ -49,6 +49,9 @@ MODULE xc_gauxc_functional
                                               qs_rho_type
    USE qs_scf_types,                    ONLY: qs_scf_env_type
    USE string_utilities,                ONLY: uppercase
+   USE xc_gauxc_cache,                  ONLY: cp_gauxc_cache_params,&
+                                              cp_gauxc_cache_type,&
+                                              gauxc_cache_init
    USE xc_gauxc_interface,              ONLY: &
         cp_gauxc_basisset_type, cp_gauxc_grid_type, cp_gauxc_integrator_type, &
         cp_gauxc_molecule_type, cp_gauxc_status_type, cp_gauxc_xc_gradient_type, cp_gauxc_xc_type, &
@@ -977,6 +980,8 @@ CONTAINS
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cell_type), POINTER                           :: cell
       TYPE(cp_gauxc_basisset_type)                       :: gauxc_basis
+      TYPE(cp_gauxc_cache_params)                        :: params
+      TYPE(cp_gauxc_cache_type), POINTER                 :: cache
       TYPE(cp_gauxc_grid_type)                           :: gauxc_gradient_grid_result, &
                                                             gauxc_grid_result
       TYPE(cp_gauxc_integrator_type) :: gauxc_gradient_integrator_result, gauxc_integrator_result
@@ -1259,15 +1264,18 @@ CONTAINS
          END IF
       END IF
 
-      gauxc_mol = gauxc_create_molecule( &
-                  particle_set, &
-                  gauxc_status)
-      CALL gauxc_check_status(gauxc_status)
-      gauxc_basis = gauxc_create_basisset( &
-                    qs_kind_set, &
-                    particle_set, &
-                    gauxc_status)
-      CALL gauxc_check_status(gauxc_status)
+      ! After creating the basisset, we will have to check max_l>3 as a further condition
+      params%use_fd_gradient = gapw_method .AND. need_xc_gradient
+
+      cache => qs_env%gauxc_cache
+      CALL gauxc_cache_init( &
+         cache, &
+         params, &
+         para_env, &
+         particle_set, &
+         qs_kind_set, &
+         gauxc_status)
+
       hdf5_output = (TRIM(output_path) /= "")
       write_hdf5_output = hdf5_output .AND. para_env%mepos == 0
       IF (write_hdf5_output .AND. ASSOCIATED(scf_env)) THEN
@@ -1287,84 +1295,6 @@ CONTAINS
             "basisset.h5", &
             "basisset", &
             gauxc_status)
-         CALL gauxc_check_status(gauxc_status)
-      END IF
-      use_fd_gradient = gapw_method .AND. need_xc_gradient .AND. (gauxc_basis%max_l > 3)
-      IF (use_fd_gradient) use_gradient_mpi_runtime = .FALSE.
-      IF (use_gradient_mpi_runtime) THEN
-         use_gradient_self_runtime = .FALSE.
-      END IF
-      IF (use_fd_gradient .AND. para_env%mepos == 0) THEN
-         CALL cp_warn( &
-            __LOCATION__, &
-            "Using finite-difference GauXC XC gradients for METHOD GAPW/GAPW_XC with "// &
-            "basis functions beyond f shells. The upstream analytical GauXC gradient path is "// &
-            "not yet reliable for this case.")
-      END IF
-      IF (use_self_runtime) THEN
-         ! SKALA currently needs a replicated molecular runtime for reproducible
-         ! open-shell densities across CP2K MPI ranks.
-         gauxc_grid_result = gauxc_create_grid( &
-                             gauxc_mol, &
-                             gauxc_basis, &
-                             grid_type, &
-                             radial_quadrature, &
-                             pruning_scheme, &
-                             lb_exec_space, &
-                             batch_size, &
-                             device_runtime_fill_fraction, &
-                             gauxc_status, &
-                             mpi_comm=mp_comm_self%get_handle())
-      ELSE
-         ! Use the QS force-evaluation communicator rather than GauXC's global
-         ! runtime.  In mixed CDFT the diabatic states can be built on disjoint
-         ! MPI subgroups; using the global communicator would make GauXC wait
-         ! for ranks that are working on another state.
-         gauxc_grid_result = gauxc_create_grid( &
-                             gauxc_mol, &
-                             gauxc_basis, &
-                             grid_type, &
-                             radial_quadrature, &
-                             pruning_scheme, &
-                             lb_exec_space, &
-                             batch_size, &
-                             device_runtime_fill_fraction, &
-                             gauxc_status, &
-                             mpi_comm=para_env%get_handle())
-      END IF
-      CALL gauxc_check_status(gauxc_status)
-      gauxc_integrator_result = gauxc_create_integrator( &
-                                TRIM(xc_fun_name), &
-                                gauxc_grid_result, &
-                                int_exec_space, &
-                                lwd_kernel, &
-                                nspins, &
-                                gauxc_status)
-      CALL gauxc_check_status(gauxc_status)
-
-      IF (use_gradient_self_runtime) THEN
-         ! Upstream GauXC does not yet support Skala nuclear gradients
-         ! on an MPI runtime.  Keep the energy/VXC path on the normal MPI
-         ! runtime and use an isolated runtime only for the replicated gradient.
-         gauxc_gradient_grid_result = gauxc_create_grid( &
-                                      gauxc_mol, &
-                                      gauxc_basis, &
-                                      grid_type, &
-                                      radial_quadrature, &
-                                      pruning_scheme, &
-                                      lb_exec_space, &
-                                      batch_size, &
-                                      device_runtime_fill_fraction, &
-                                      gauxc_status, &
-                                      mpi_comm=mp_comm_self%get_handle())
-         CALL gauxc_check_status(gauxc_status)
-         gauxc_gradient_integrator_result = gauxc_create_integrator( &
-                                            TRIM(xc_fun_name), &
-                                            gauxc_gradient_grid_result, &
-                                            int_exec_space, &
-                                            lwd_kernel, &
-                                            nspins, &
-                                            gauxc_status)
          CALL gauxc_check_status(gauxc_status)
       END IF
 
