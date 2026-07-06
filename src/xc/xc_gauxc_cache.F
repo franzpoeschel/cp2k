@@ -142,7 +142,7 @@ CONTAINS
                        status)
       IF (status%status%code /= 0) GO TO 200
 
-      params%use_fd_gradient = params%use_fd_gradient .AND. (cache%basisset%max_l > 3)
+      params%use_fd_gradient = params%use_fd_gradient .AND. (cache%max_l() > 3)
       IF (params%use_fd_gradient) THEN
          params%use_gradient_mpi_runtime = .FALSE.
       END IF
