@@ -142,13 +142,12 @@ CONTAINS
                        status)
       IF (status%status%code /= 0) GO TO 200
 
-      params%use_fd_gradient = params%use_fd_gradient .AND. (cache%max_l() > 3)
-      IF (params%use_fd_gradient) THEN
-         params%use_gradient_mpi_runtime = .FALSE.
-      END IF
-      IF (params%use_gradient_mpi_runtime) THEN
-         params%use_gradient_self_runtime = .FALSE.
-      END IF
+      params%use_fd_gradient = &
+         params%use_fd_gradient .AND. (cache%max_l() > 3)
+      params%use_gradient_mpi_runtime = &
+         params%use_gradient_mpi_runtime .AND. params%use_fd_gradient
+      params%use_gradient_self_runtime = &
+         params%use_gradient_self_runtime .AND. params%use_gradient_mpi_runtime
 
       IF (cache%use_fd_gradient .AND. para_env%mepos == 0) THEN
          CALL cp_warn( &
@@ -237,8 +236,11 @@ CONTAINS
       cache%int_exec_space = TRIM(params%int_exec_space)
       cache%model_name = TRIM(params%model_name)
       cache%lwd_kernel = TRIM(params%lwd_kernel)
+      cache%use_gradient_mpi_runtime = params%use_gradient_mpi_runtime
+      cache%use_mpi_runtime = params%use_mpi_runtime
       cache%use_gradient_self_runtime = params%use_gradient_self_runtime
       cache%use_self_runtime = params%use_self_runtime
+      cache%use_fd_gradient = params%use_fd_gradient
       IF (ALLOCATED(cache%last_positions)) &
          DEALLOCATE (cache%last_positions)
       ALLOCATE (cache%last_positions(3, params%natom))
@@ -343,6 +345,7 @@ CONTAINS
       TYPE(cp_gauxc_cache_type), INTENT(IN)                :: cache
       TYPE(cp_gauxc_cache_params), INTENT(in) :: params
       TYPE(particle_type), DIMENSION(:), POINTER           :: particle_set
+      LOGICAL :: use_gradient_self_runtime, use_gradient_mpi_runtime, use_fd_gradient
       LOGICAL                                              :: cache_valid
 
 #ifdef __GAUXC
@@ -364,8 +367,25 @@ CONTAINS
       IF (TRIM(cache%int_exec_space) /= TRIM(params%int_exec_space)) RETURN
       IF (TRIM(cache%model_name) /= TRIM(params%model_name)) RETURN
       IF (TRIM(cache%lwd_kernel) /= TRIM(params%lwd_kernel)) RETURN
-      IF (cache%use_gradient_self_runtime .NEQV. params%use_gradient_self_runtime) RETURN
       IF (cache%use_self_runtime .NEQV. params%use_self_runtime) RETURN
+      IF (cache%use_mpi_runtime .NEQV. params%use_mpi_runtime) RETURN
+
+      ! These three are modified during cache init, so we must emulate these changes here
+      use_gradient_self_runtime = params%use_gradient_self_runtime
+      use_gradient_mpi_runtime = params%use_gradient_mpi_runtime
+      use_fd_gradient = params%use_fd_gradient
+
+      use_fd_gradient = &
+         use_fd_gradient .AND. (cache%max_l() > 3)
+      use_gradient_mpi_runtime = &
+         use_gradient_mpi_runtime .AND. use_fd_gradient
+      use_gradient_self_runtime = &
+         use_gradient_self_runtime .AND. use_gradient_mpi_runtime
+
+      IF (cache%use_gradient_mpi_runtime .NEQV. use_gradient_mpi_runtime) RETURN
+      IF (cache%use_fd_gradient .NEQV. use_fd_gradient) RETURN
+      IF (cache%use_gradient_self_runtime .NEQV. use_gradient_self_runtime) RETURN
+
       IF (.NOT. ALLOCATED(cache%last_positions)) RETURN
       IF (SIZE(cache%last_positions, 2) /= params%natom) RETURN
       DO iatom = 1, params%natom
