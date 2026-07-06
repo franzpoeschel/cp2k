@@ -40,8 +40,11 @@ MODULE xc_gauxc_cache
       CHARACTER(LEN=default_string_length)         :: int_exec_space = ""
       CHARACTER(LEN=default_string_length)         :: model_name = ""
       CHARACTER(len=default_string_length)         :: lwd_kernel = ""
+      LOGICAL                                      :: use_mpi_runtime = .FALSE.
+      LOGICAL                                      :: use_gradient_mpi_runtime = .FALSE.
       LOGICAL                                      :: use_self_runtime = .FALSE.
       LOGICAL                                      :: use_gradient_self_runtime = .FALSE.
+      LOGICAL                                      :: use_fd_gradient = .FALSE.
    END TYPE cp_gauxc_cache_params
 
    TYPE, extends(cp_gauxc_cache_params)            :: cp_gauxc_cache_type
@@ -52,7 +55,6 @@ MODULE xc_gauxc_cache
       TYPE(cp_gauxc_integrator_type)               :: integrator
       TYPE(cp_gauxc_integrator_type)               :: gradient_integrator
       LOGICAL                                      :: is_init = .FALSE.
-      LOGICAL                                      :: use_fd_gradient = .FALSE.
       REAL(c_double), DIMENSION(:, :), ALLOCATABLE :: last_positions
 
    CONTAINS
@@ -100,9 +102,6 @@ CONTAINS
 !> \param para_env ...
 !> \param particle_set ...
 !> \param qs_kind_set ...
-!> \param gapw ...
-!> \param calculate_forces ...
-!> \param use_skala_model ...
 !> \param status ...
 ! **************************************************************************************************
    SUBROUTINE gauxc_cache_init( &
@@ -111,19 +110,15 @@ CONTAINS
       para_env, &
       particle_set, &
       qs_kind_set, &
-      gapw, &
-      calculate_forces, &
-      use_skala_model, &
       status)
 
       TYPE(cp_gauxc_cache_type), INTENT(inout)           :: cache
-      TYPE(cp_gauxc_cache_params), INTENT(in)            :: params
+      TYPE(cp_gauxc_cache_params), INTENT(inout)         :: params
       TYPE(mp_para_env_type), INTENT(in), POINTER        :: para_env
       TYPE(particle_type), DIMENSION(:), INTENT(in), &
          POINTER                                         :: particle_set
       TYPE(qs_kind_type), DIMENSION(:), INTENT(in), &
          POINTER                                         :: qs_kind_set
-      LOGICAL, INTENT(in)                                :: gapw, calculate_forces, use_skala_model
       TYPE(cp_gauxc_status_type), INTENT(inout)          :: status
 
       IF (gauxc_cache_is_valid( &
@@ -147,17 +142,24 @@ CONTAINS
                        status)
       IF (status%status%code /= 0) GO TO 200
 
-      cache%use_fd_gradient = gapw .AND. calculate_forces .AND. &
-                              (use_skala_model .OR. cache%basisset%max_l > 3)
+      params%use_fd_gradient = params%use_fd_gradient .AND. (cache%basisset%max_l > 3)
+      IF (params%use_fd_gradient) THEN
+         params%use_gradient_mpi_runtime = .FALSE.
+      END IF
+      IF (params%use_gradient_mpi_runtime) THEN
+         params%use_gradient_self_runtime = .FALSE.
+      END IF
+
       IF (cache%use_fd_gradient .AND. para_env%mepos == 0) THEN
          CALL cp_warn( &
             __LOCATION__, &
-            "Using finite-difference GauXC XC gradients for METHOD GAPW with SKALA or "// &
-            "all-electron basis functions beyond f shells.  The upstream analytical GauXC "// &
-            "gradient path is not yet reliable for this case.")
+            "Using finite-difference GauXC XC gradients for METHOD GAPW/GAPW_XC with "// &
+            "basis functions beyond f shells. The upstream analytical GauXC gradient path is "// &
+            "not yet reliable for this case.")
       END IF
-
       IF (params%use_self_runtime) THEN
+         ! SKALA currently needs a replicated molecular runtime for reproducible
+         ! open-shell densities across CP2K MPI ranks.
          cache%grid = gauxc_create_grid( &
                       cache%molecule, &
                       cache%basisset, &
@@ -170,6 +172,10 @@ CONTAINS
                       status, &
                       mpi_comm=mp_comm_self%get_handle())
       ELSE
+         ! Use the QS force-evaluation communicator rather than GauXC's global
+         ! runtime.  In mixed CDFT the diabatic states can be built on disjoint
+         ! MPI subgroups; using the global communicator would make GauXC wait
+         ! for ranks that are working on another state.
          cache%grid = gauxc_create_grid( &
                       cache%molecule, &
                       cache%basisset, &
@@ -194,6 +200,9 @@ CONTAINS
       IF (status%status%code /= 0) GO TO 400
 
       IF (params%use_gradient_self_runtime) THEN
+         ! Upstream GauXC does not yet support OneDFT/SKALA nuclear gradients
+         ! on an MPI runtime.  Keep the energy/VXC path on the normal MPI
+         ! runtime and use an isolated runtime only for the replicated gradient.
          cache%gradient_grid = gauxc_create_grid( &
                                cache%molecule, &
                                cache%basisset, &
@@ -369,8 +378,6 @@ CONTAINS
       MARK_USED(particle_set)
       MARK_USED(params)
       MARK_USED(use_gradient_self_runtime)
-      MARK_USED(gapw)
-      MARK_USED(calculate_forces)
       MARK_USED(use_skala_model)
       MARK_USED(use_self_runtime)
       MARK_USED(para_env)
