@@ -151,7 +151,7 @@ CONTAINS
       params%use_gradient_self_runtime = &
          params%use_gradient_self_runtime .AND. .NOT. params%use_gradient_mpi_runtime
 
-      IF (cache%use_fd_gradient .AND. para_env%mepos == 0) THEN
+      IF (params%use_fd_gradient .AND. para_env%mepos == 0) THEN
          CALL cp_warn( &
             __LOCATION__, &
             "Using finite-difference GauXC XC gradients for METHOD GAPW/GAPW_XC with "// &
