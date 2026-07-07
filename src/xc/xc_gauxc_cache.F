@@ -54,6 +54,7 @@ MODULE xc_gauxc_cache
       TYPE(cp_gauxc_grid_type)                     :: gradient_grid
       TYPE(cp_gauxc_integrator_type)               :: integrator
       TYPE(cp_gauxc_integrator_type)               :: gradient_integrator
+      INTEGER                                      :: mpi_comm
       LOGICAL                                      :: is_init = .FALSE.
       REAL(c_double), DIMENSION(:, :), ALLOCATABLE :: last_positions
 
@@ -124,6 +125,7 @@ CONTAINS
       IF (gauxc_cache_is_valid( &
           cache, &
           params, &
+          para_env, &
           particle_set)) THEN
          status%status%code = 0
          RETURN
@@ -252,6 +254,7 @@ CONTAINS
          END DO
       END BLOCK
 
+      cache%mpi_comm = para_env%get_handle()
       cache%is_init = .TRUE.
 
       RETURN
@@ -339,13 +342,15 @@ CONTAINS
    FUNCTION gauxc_cache_is_valid( &
       cache, &
       params, &
+      para_env, &
       particle_set) &
       RESULT(cache_valid)
 
       TYPE(cp_gauxc_cache_type), INTENT(IN)                :: cache
-      TYPE(cp_gauxc_cache_params), INTENT(in) :: params
+      TYPE(cp_gauxc_cache_params), INTENT(in)              :: params
+      TYPE(mp_para_env_type), INTENT(in), POINTER          :: para_env
       TYPE(particle_type), DIMENSION(:), POINTER           :: particle_set
-      LOGICAL :: use_gradient_self_runtime, use_gradient_mpi_runtime, use_fd_gradient
+      LOGICAL                                              :: use_gradient_self_runtime, use_gradient_mpi_runtime, use_fd_gradient
       LOGICAL                                              :: cache_valid
 
 #ifdef __GAUXC
@@ -385,6 +390,7 @@ CONTAINS
       IF (cache%use_gradient_mpi_runtime .NEQV. use_gradient_mpi_runtime) RETURN
       IF (cache%use_fd_gradient .NEQV. use_fd_gradient) RETURN
       IF (cache%use_gradient_self_runtime .NEQV. use_gradient_self_runtime) RETURN
+      IF (cache%mpi_comm /= para_env%get_handle()) RETURN
 
       IF (.NOT. ALLOCATED(cache%last_positions)) RETURN
       IF (SIZE(cache%last_positions, 2) /= params%natom) RETURN
