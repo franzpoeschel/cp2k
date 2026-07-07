@@ -1397,12 +1397,12 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
-      CALL keyword_create(keyword, __LOCATION__, name="ONEDFT_ATOM_CHUNK_SIZE", &
+      CALL keyword_create(keyword, __LOCATION__, name="SKALA_ATOM_CHUNK_SIZE", &
                           description="Atom chunk size for GauXC Skala Torch inference. "// &
                           "A positive value evaluates the Torch model atom block by atom block; "// &
                           "zero disables chunking; the default leaves GauXC's model-specific policy "// &
-                          "or the GAUXC_ONEDFT_ATOM_CHUNK_SIZE environment variable in control.", &
-                          usage="ONEDFT_ATOM_CHUNK_SIZE 3", &
+                          "or the GAUXC_SKALA_ATOM_CHUNK_SIZE environment variable in control.", &
+                          usage="SKALA_ATOM_CHUNK_SIZE 3", &
                           default_i_val=-1)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
@@ -1597,7 +1597,7 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, __LOCATION__, name="SKALA_RUNTIME", &
-                          description="MPI communicator policy for GauXC OneDFT/SKALA. AUTO uses "// &
+                          description="MPI communicator policy for GauXC SKALA. AUTO uses "// &
                           "the force-evaluation communicator for closed-shell calculations and a "// &
                           "rank-local replicated runtime for open-shell calculations. MPI forces the "// &
                           "force-evaluation communicator. SELF forces the previous replicated mode.", &
@@ -1611,13 +1611,13 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
-      CALL keyword_create(keyword, __LOCATION__, name="ONEDFT_GRADIENT_RUNTIME", &
-                          description="MPI communicator policy for GauXC OneDFT/SKALA nuclear gradients. "// &
+      CALL keyword_create(keyword, __LOCATION__, name="SKALA_GRADIENT_RUNTIME", &
+                          description="MPI communicator policy for GauXC SKALA nuclear gradients. "// &
                           "AUTO keeps the conservative rank-local gradient runtime when energy/VXC uses "// &
                           "the MPI communicator. MPI uses the force-evaluation communicator for gradients "// &
-                          "and requires GauXC support for distributed OneDFT/SKALA gradients. SELF forces "// &
+                          "and requires GauXC support for distributed SKALA gradients. SELF forces "// &
                           "rank-local replicated gradient runtimes.", &
-                          usage="ONEDFT_GRADIENT_RUNTIME AUTO", &
+                          usage="SKALA_GRADIENT_RUNTIME AUTO", &
                           enum_c_vals=s2a("AUTO", "MPI", "SELF"), &
                           enum_i_vals=[1, 2, 3], &
                           enum_desc=s2a("Conservative replicated gradient runtime (default)", &

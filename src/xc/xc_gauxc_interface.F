@@ -757,7 +757,7 @@ CONTAINS
       res%vxc_scalar = 0._dp
 
       IF (use_skala) THEN
-#ifndef GAUXC_HAS_SKALA
+#ifndef GAUXC_HAS_ONEDFT
          CPABORT("GauXC lacks Skala support")
 #else
          ! Skala may change the OpenMP team size for later parallel regions.
@@ -902,7 +902,7 @@ CONTAINS
       END IF
 
       IF (use_skala) THEN
-#ifndef GAUXC_HAS_SKALA
+#ifndef GAUXC_HAS_ONEDFT
          CPABORT("GauXC lacks Skala support")
 #else
          ! Skala may change the OpenMP team size for later parallel regions.
