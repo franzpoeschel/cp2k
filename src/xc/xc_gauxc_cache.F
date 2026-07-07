@@ -147,9 +147,9 @@ CONTAINS
       params%use_fd_gradient = &
          params%use_fd_gradient .AND. (cache%max_l() > 3)
       params%use_gradient_mpi_runtime = &
-         params%use_gradient_mpi_runtime .AND. params%use_fd_gradient
+         params%use_gradient_mpi_runtime .AND. .NOT. params%use_fd_gradient
       params%use_gradient_self_runtime = &
-         params%use_gradient_self_runtime .AND. params%use_gradient_mpi_runtime
+         params%use_gradient_self_runtime .AND. .NOT. params%use_gradient_mpi_runtime
 
       IF (cache%use_fd_gradient .AND. para_env%mepos == 0) THEN
          CALL cp_warn( &
@@ -383,9 +383,9 @@ CONTAINS
       use_fd_gradient = &
          use_fd_gradient .AND. (cache%max_l() > 3)
       use_gradient_mpi_runtime = &
-         use_gradient_mpi_runtime .AND. use_fd_gradient
+         use_gradient_mpi_runtime .AND. .NOT. use_fd_gradient
       use_gradient_self_runtime = &
-         use_gradient_self_runtime .AND. use_gradient_mpi_runtime
+         use_gradient_self_runtime .AND. .NOT. use_gradient_mpi_runtime
 
       IF (cache%use_gradient_mpi_runtime .NEQV. use_gradient_mpi_runtime) RETURN
       IF (cache%use_fd_gradient .NEQV. use_fd_gradient) RETURN

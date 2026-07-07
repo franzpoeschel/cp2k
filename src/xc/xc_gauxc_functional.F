@@ -971,7 +971,7 @@ CONTAINS
       LOGICAL :: do_kpoints, gapw_method, gapw_paw_pseudopotentials, gapw_pseudopotentials, &
          grid_explicit, hdf5_output, is_periodic, molecular_virial, molecular_virial_debug, &
          need_xc_gradient, onedft_atom_chunk_size_explicit, periodic_reference, pruning_explicit, &
-         use_fd_gradient, use_gradient_mpi_runtime, use_onedft, use_skala_model, write_hdf5_output
+         use_onedft, use_skala_model, write_hdf5_output
       REAL(KIND=dp)                                      :: molecular_virial_debug_dx
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: density_scalar, density_zeta
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
@@ -1232,17 +1232,17 @@ CONTAINS
       IF (.NOT. use_skala_model) params%use_self_runtime = .FALSE.
       SELECT CASE (TRIM(onedft_gradient_runtime_key))
       CASE ("AUTO", "SELF")
-         use_gradient_mpi_runtime = .FALSE.
+         params%use_gradient_mpi_runtime = .FALSE.
          params%use_gradient_self_runtime = need_xc_gradient .AND. use_onedft .AND. &
                                             para_env%num_pe > 1 .AND. .NOT. params%use_self_runtime
       CASE ("MPI")
-         use_gradient_mpi_runtime = need_xc_gradient .AND. use_onedft .AND. para_env%num_pe > 1
+         params%use_gradient_mpi_runtime = need_xc_gradient .AND. use_onedft .AND. para_env%num_pe > 1
          params%use_gradient_self_runtime = .FALSE.
       CASE DEFAULT
          CALL cp_abort(__LOCATION__, "Unknown GAUXC%ONEDFT_GRADIENT_RUNTIME value.")
       END SELECT
       IF (.NOT. use_onedft) THEN
-         use_gradient_mpi_runtime = .FALSE.
+         params%use_gradient_mpi_runtime = .FALSE.
          params%use_gradient_self_runtime = .FALSE.
       END IF
       IF (use_skala_model .AND. para_env%num_pe > 1 .AND. .NOT. params%use_self_runtime .AND. &
@@ -1314,7 +1314,7 @@ CONTAINS
                               model=TRIM(params%model_name))
             CALL gauxc_check_status(gauxc_status)
             IF (need_xc_gradient) THEN
-               IF (use_fd_gradient) THEN
+               IF (params%use_fd_gradient) THEN
                   CALL gauxc_xc_gradient_fd( &
                      particle_set, qs_kind_set, density_scalar, params%nspins, params%model_name, &
                      params%xc_fun_name, params%grid_type, params%radial_quadrature, params%pruning_scheme, &
@@ -1381,7 +1381,7 @@ CONTAINS
                               model=TRIM(params%model_name))
             CALL gauxc_check_status(gauxc_status)
             IF (need_xc_gradient) THEN
-               IF (use_fd_gradient) THEN
+               IF (params%use_fd_gradient) THEN
                   CALL gauxc_xc_gradient_fd( &
                      particle_set, qs_kind_set, density_scalar, params%nspins, params%model_name, &
                      params%xc_fun_name, params%grid_type, params%radial_quadrature, params%pruning_scheme, &
