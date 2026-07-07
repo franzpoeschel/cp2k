@@ -201,7 +201,7 @@ CONTAINS
       IF (status%status%code /= 0) GO TO 400
 
       IF (params%use_gradient_self_runtime) THEN
-         ! Upstream GauXC does not yet support OneDFT/SKALA nuclear gradients
+         ! Upstream GauXC does not yet support Skala nuclear gradients
          ! on an MPI runtime.  Keep the energy/VXC path on the normal MPI
          ! runtime and use an isolated runtime only for the replicated gradient.
          cache%gradient_grid = gauxc_create_grid( &

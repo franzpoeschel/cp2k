@@ -1330,10 +1330,10 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, __LOCATION__, name="MODEL", &
-                          description="GauXC OneDFT model name or path. Use NONE for conventional GauXC. "// &
-                          "MODEL SKALA selects the installed Skala-1.1 model when available; "// &
-                          "other OneDFT models are supplied as .fun files or model names. "// &
-                          "NLCC pseudopotentials are rejected in the molecular GauXC OneDFT/SKALA "// &
+                          description="GauXC Skala model name or path. Use NONE for conventional GauXC. "// &
+                          "The path may include wildcards for batch evaluation. When using MODEL SKALA, "// &
+                          "other Skala models are supplied as .fun files or model names. "// &
+                          "NLCC pseudopotentials are rejected in the molecular GauXC Skala "// &
                           "path; use the CP2K-native SKALA grid path for NLCC calculations.", &
                           usage="MODEL SKALA", &
                           default_c_val="NONE")
@@ -1341,7 +1341,7 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, __LOCATION__, name="GRID", &
-                          description="Atomic grid size for GauXC. OneDFT/SKALA defaults to SUPERFINE "// &
+                          description="Atomic grid size for GauXC. Skala defaults to SUPERFINE "// &
                           "unless this keyword is set explicitly.", &
                           usage="GRID fine", &
                           enum_c_vals=s2a("FINE", "ULTRAFINE", "SUPERFINE", "GM3", "GM5"), &
@@ -1369,7 +1369,7 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, __LOCATION__, name="PRUNING_SCHEME", &
-                          description="Pruning scheme for GauXC. OneDFT/SKALA defaults to UNPRUNED "// &
+                          description="Pruning scheme for GauXC. Skala defaults to UNPRUNED "// &
                           "unless this keyword is set explicitly.", &
                           usage="PRUNING_SCHEME robust", &
                           enum_c_vals=s2a("ROBUST", "TREUTLER", "UNPRUNED"), &
@@ -1390,7 +1390,7 @@ CONTAINS
 
       CALL keyword_create(keyword, __LOCATION__, name="DEVICE_RUNTIME_FILL_FRACTION", &
                           description="Fraction of currently available GPU memory preallocated by "// &
-                          "a GauXC device runtime. Lower values leave more memory for OneDFT/SKALA "// &
+                          "a GauXC device runtime. Lower values leave more memory for Skala "// &
                           "Torch inference; this keyword is used only with LB_EXECUTION_SPACE DEVICE.", &
                           usage="DEVICE_RUNTIME_FILL_FRACTION 0.1", &
                           default_r_val=0.1_dp)
@@ -1398,7 +1398,7 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, __LOCATION__, name="ONEDFT_ATOM_CHUNK_SIZE", &
-                          description="Atom chunk size for GauXC OneDFT/SKALA Torch inference. "// &
+                          description="Atom chunk size for GauXC Skala Torch inference. "// &
                           "A positive value evaluates the Torch model atom block by atom block; "// &
                           "zero disables chunking; the default leaves GauXC's model-specific policy "// &
                           "or the GAUXC_ONEDFT_ATOM_CHUNK_SIZE environment variable in control.", &
@@ -1484,7 +1484,7 @@ CONTAINS
 
       CALL keyword_create(keyword, __LOCATION__, name="NATIVE_GRID_GAPW_DENSITY_PARTITION", &
                           description="Hard/soft one-center density contribution used by METHOD "// &
-                          "GAPW and METHOD GAPW_XC in OneDFT/SKALA atomic-grid corrections. "// &
+                          "GAPW and METHOD GAPW_XC in Skala atomic-grid corrections. "// &
                           "HARD_MINUS_SOFT evaluates the SKALA model on hard and soft atomic "// &
                           "densities separately and adds the GAPW hard-minus-soft correction; this "// &
                           "is the default because it follows CP2K's GAPW XC expression. For "// &

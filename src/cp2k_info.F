@@ -120,7 +120,7 @@ CONTAINS
       flags = TRIM(flags)//" gauxc_mpi"
 #endif
 #if defined(GAUXC_HAS_ONEDFT)
-      flags = TRIM(flags)//" gauxc_onedft"
+      flags = TRIM(flags)//" gauxc_skala"
 #endif
 #if defined(GAUXC_HAS_HOST)
       flags = TRIM(flags)//" gauxc_host"
