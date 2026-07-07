@@ -1315,7 +1315,7 @@ CONTAINS
                               model=TRIM(params%model_name))
             CALL gauxc_check_status(gauxc_status)
             IF (need_xc_gradient) THEN
-               IF (use_fd_gradient) THEN
+               IF (params%use_fd_gradient) THEN
                   CALL gauxc_xc_gradient_fd( &
                      particle_set, qs_kind_set, density_scalar, params%nspins, params%model_name, &
                      params%xc_fun_name, params%grid_type, params%radial_quadrature, params%pruning_scheme, &
@@ -1382,7 +1382,7 @@ CONTAINS
                               model=TRIM(params%model_name))
             CALL gauxc_check_status(gauxc_status)
             IF (need_xc_gradient) THEN
-               IF (use_fd_gradient) THEN
+               IF (params%use_fd_gradient) THEN
                   CALL gauxc_xc_gradient_fd( &
                      particle_set, qs_kind_set, density_scalar, params%nspins, params%model_name, &
                      params%xc_fun_name, params%grid_type, params%radial_quadrature, params%pruning_scheme, &
