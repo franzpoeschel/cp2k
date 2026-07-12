@@ -12,7 +12,8 @@
 MODULE xc_gauxc_cache
 
    USE iso_c_binding,                   ONLY: c_double
-   USE kinds,                           ONLY: default_string_length
+   USE kinds,                           ONLY: default_path_length,&
+                                              default_string_length
    USE message_passing,                 ONLY: mp_comm_self,&
                                               mp_para_env_type
    USE particle_types,                  ONLY: particle_type
@@ -38,7 +39,7 @@ MODULE xc_gauxc_cache
       CHARACTER(LEN=default_string_length)         :: pruning_scheme = ""
       CHARACTER(LEN=default_string_length)         :: lb_exec_space = ""
       CHARACTER(LEN=default_string_length)         :: int_exec_space = ""
-      CHARACTER(LEN=default_string_length)         :: model_name = ""
+      CHARACTER(LEN=default_path_length)           :: model_name = ""
       CHARACTER(len=default_string_length)         :: lwd_kernel = ""
       LOGICAL                                      :: use_mpi_runtime = .FALSE.
       LOGICAL                                      :: use_gradient_mpi_runtime = .FALSE.
@@ -122,6 +123,7 @@ CONTAINS
          POINTER                                         :: qs_kind_set
       TYPE(cp_gauxc_status_type), INTENT(inout)          :: status
 
+#ifdef __GAUXC
       IF (gauxc_cache_is_valid( &
           cache, &
           params, &
@@ -293,6 +295,14 @@ CONTAINS
 999   CONTINUE
       IF (ALLOCATED(cache%last_positions)) DEALLOCATE (cache%last_positions)
       cache%is_init = .FALSE.
+#else
+      MARK_USED(params)
+      MARK_USED(para_env)
+      MARK_USED(particle_set)
+      MARK_USED(qs_kind_set)
+      MARK_USED(status)
+      cache%is_init = .FALSE.
+#endif
 
    END SUBROUTINE gauxc_cache_init
 
@@ -405,8 +415,8 @@ CONTAINS
       MARK_USED(particle_set)
       MARK_USED(params)
       MARK_USED(use_gradient_self_runtime)
-      MARK_USED(use_skala_model)
-      MARK_USED(use_self_runtime)
+      MARK_USED(use_gradient_mpi_runtime)
+      MARK_USED(use_fd_gradient)
       MARK_USED(para_env)
       cache_valid = .FALSE.
 #endif

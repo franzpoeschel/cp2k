@@ -964,15 +964,15 @@ CONTAINS
       REAL(KIND=dp), PARAMETER :: gapw_fd_gradient_dx = 1.0E-4_dp
 
       CHARACTER(len=default_path_length)                 :: model_key, output_path
-      CHARACTER(len=default_string_length) :: gradient_runtime, gradient_runtime_key, grid_key, &
-         pruning_key, skala_runtime, skala_runtime_key
-      INTEGER                                            :: env_status, img, ispin, nimages, &
-                                                            atom_chunk_size
+      CHARACTER(len=default_string_length)               :: gradient_runtime, gradient_runtime_key, &
+                                                            grid_key, pruning_key, skala_runtime, &
+                                                            skala_runtime_key
+      INTEGER                                            :: atom_chunk_size, env_status, img, ispin, &
+                                                            nimages
       LOGICAL :: atom_chunk_size_explicit, do_kpoints, gapw_method, gapw_paw_pseudopotentials, &
-         gapw_pseudopotentials, &
-         grid_explicit, hdf5_output, is_periodic, molecular_virial, molecular_virial_debug, &
-         need_xc_gradient, periodic_reference, pruning_explicit, use_gauxc_model, &
-         use_skala_model, write_hdf5_output
+         gapw_pseudopotentials, grid_explicit, hdf5_output, is_periodic, molecular_virial, &
+         molecular_virial_debug, need_xc_gradient, periodic_reference, pruning_explicit, &
+         use_gauxc_model, use_skala_model, write_hdf5_output
       REAL(KIND=dp)                                      :: molecular_virial_debug_dx
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: density_scalar, density_zeta
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
