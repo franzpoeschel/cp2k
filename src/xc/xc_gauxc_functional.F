@@ -968,7 +968,7 @@ CONTAINS
          "Use an additive PAIR_POTENTIAL dispersion correction or disable GauXC."
       REAL(KIND=dp), PARAMETER :: gapw_fd_gradient_dx = 1.0E-4_dp
 
-      CHARACTER(len=default_path_length)                 :: model_key, output_path, model_name
+      CHARACTER(len=default_path_length)                 :: model_key, model_name, output_path
       CHARACTER(len=default_string_length)               :: gradient_runtime, gradient_runtime_key, &
                                                             grid_key, pruning_key, skala_runtime, &
                                                             skala_runtime_key, xc_fun_key
@@ -1150,7 +1150,7 @@ CONTAINS
       gradient_runtime_key = ADJUSTL(gradient_runtime)
       CALL uppercase(gradient_runtime_key)
       params%use_gauxc_model = (TRIM(model_key) /= "" .AND. TRIM(model_key) /= "NONE" .AND. &
-                         TRIM(model_key) /= TRIM(xc_fun_key))
+                                TRIM(model_key) /= TRIM(xc_fun_key))
       use_skala_model = (INDEX(TRIM(model_key), "SKALA") > 0)
       params%model_eval_name = model_name
       IF (.NOT. params%use_gauxc_model) THEN
@@ -1360,7 +1360,7 @@ CONTAINS
                IF (molecular_virial_debug) THEN
                   CALL debug_gauxc_molecular_virial( &
                      exc_grad%exc_grad, particle_set, qs_kind_set, density_scalar, params%nspins, &
-                     params%model_eval_name, params%xc_fun_name, params%grid_type, params%radial_quadrature, params%pruning_scheme, &
+                    params%model_eval_name, params%xc_fun_name, params%grid_type, params%radial_quadrature, params%pruning_scheme, &
                      params%lb_exec_space, params%int_exec_space, params%lwd_kernel, params%batch_size, &
                      params%device_runtime_fill_fraction, molecular_virial_debug_dx, para_env)
                END IF
@@ -1429,7 +1429,7 @@ CONTAINS
                IF (molecular_virial_debug) THEN
                   CALL debug_gauxc_molecular_virial( &
                      exc_grad%exc_grad, particle_set, qs_kind_set, density_scalar, params%nspins, &
-                     params%model_eval_name, params%xc_fun_name, params%grid_type, params%radial_quadrature, params%pruning_scheme, &
+                    params%model_eval_name, params%xc_fun_name, params%grid_type, params%radial_quadrature, params%pruning_scheme, &
                      params%lb_exec_space, params%int_exec_space, params%lwd_kernel, params%batch_size, &
                      params%device_runtime_fill_fraction, molecular_virial_debug_dx, para_env, &
                      density_zeta=density_zeta)
