@@ -1256,11 +1256,12 @@ CONTAINS
       IF (use_skala_model .AND. para_env%num_pe > 1 .AND. .NOT. params%use_self_runtime .AND. &
           para_env%mepos == 0 .AND. ASSOCIATED(scf_env)) THEN
          IF (scf_env%iter_count == 1) THEN
+            ! TODO verify where this env var is read
             CALL cp_warn( &
                __LOCATION__, &
                "GAUXC%SKALA_RUNTIME uses the MPI communicator for energy/VXC. "// &
                "SKALA Torch atom chunks can be distributed across MPI ranks; "// &
-               "set GAUXC_ONEDFT_DISTRIBUTED_TORCH=0 to force rank-0 Torch inference.")
+               "set GAUXC_SKALA_DISTRIBUTED_TORCH=0 to force rank-0 Torch inference.")
          END IF
       END IF
 
