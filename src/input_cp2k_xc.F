@@ -1401,7 +1401,7 @@ CONTAINS
                           description="Atom chunk size for GauXC Skala Torch inference. "// &
                           "A positive value evaluates the Torch model atom block by atom block; "// &
                           "zero disables chunking; the default leaves GauXC's model-specific policy "// &
-                          "or the GAUXC_ONEDFT_ATOM_CHUNK_SIZE environment variable in control.", &
+                          "or the GAUXC_SKALA_ATOM_CHUNK_SIZE environment variable in control.", &
                           usage="MODEL_ATOM_CHUNK_SIZE 3", &
                           default_i_val=-1)
       CALL section_add_keyword(section, keyword)

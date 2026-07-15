@@ -102,17 +102,17 @@ CONTAINS
       IF (.NOT. is_explicit) RETURN
 
       IF (atom_chunk_size < 0) THEN
-         ierr = c_unsetenv("GAUXC_ONEDFT_ATOM_CHUNK_SIZE"//c_null_char)
+         ierr = c_unsetenv("GAUXC_SKALA_ATOM_CHUNK_SIZE"//c_null_char)
       ELSE
          WRITE (chunk_value, '(I0)') atom_chunk_size
          ierr = c_setenv( &
-                "GAUXC_ONEDFT_ATOM_CHUNK_SIZE"//c_null_char, &
+                "GAUXC_SKALA_ATOM_CHUNK_SIZE"//c_null_char, &
                 TRIM(chunk_value)//c_null_char, &
                 1_c_int)
       END IF
       IF (ierr /= 0_c_int) THEN
          CALL cp_abort(__LOCATION__, &
-                       "Could not set GAUXC_ONEDFT_ATOM_CHUNK_SIZE for GauXC Skala.")
+                       "Could not set GAUXC_SKALA_ATOM_CHUNK_SIZE for GauXC Skala.")
       END IF
    END SUBROUTINE set_gauxc_model_atom_chunk_env
 
