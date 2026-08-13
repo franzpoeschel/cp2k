@@ -416,7 +416,10 @@ CONTAINS
                                        pw%pw_grid%bounds(1, 1)*grid_spacing(1), &
                                        pw%pw_grid%bounds(1, 2)*grid_spacing(2), &
                                        pw%pw_grid%bounds(1, 3)*grid_spacing(3)])
-      CALL mesh%set_grid_spacing(grid_spacing)
+      CALL mesh%set_grid_spacing([ &
+                                 my_stride(1)*grid_spacing(1), &
+                                 my_stride(2)*grid_spacing(2), &
+                                 my_stride(3)*grid_spacing(3)])
       CALL mesh%set_grid_unit_SI(a_bohr)
       CALL mesh%set_unit_dimension(openpmd_data%unit_dimension)
       scalar_mesh = mesh%as_record_component()
