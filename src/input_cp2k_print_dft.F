@@ -1149,8 +1149,36 @@ CONTAINS
       CALL section_add_keyword(print_key, keyword)
       CALL keyword_release(keyword)
 
-      CALL section_add_subsection(section, print_key)
-      CALL section_release(print_key)
+       CALL section_add_subsection(section, print_key)
+       CALL section_release(print_key)
+
+       CALL cp_print_key_section_create(print_key, __LOCATION__, "XC_ENERGY_DENSITY", &
+                                        description="Controls the printing of exchange-correlation energy density (exc_r)"// &
+                                        " computed by GauXC. This is the per-grid-point XC energy density that integrates to E_xc.", &
+                                        print_level=debug_print_level, filename="")
+       NULLIFY (subsection)
+       CALL create_xc_energy_density_section(subsection, "CUBE", &
+                                             "cube", &
+                                             [2, 2, 2], "STRIDE 2 2 2", debug_print_level, "")
+       CALL keyword_create(keyword, __LOCATION__, name="APPEND", &
+                           description="append the cube files when they already exist", &
+                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+       CALL section_add_keyword(subsection, keyword)
+       CALL keyword_release(keyword)
+
+       CALL section_add_subsection(print_key, subsection)
+       CALL section_release(subsection)
+
+       NULLIFY (subsection)
+       CALL create_xc_energy_density_section(subsection, "OPENPMD", &
+                                             "openPMD", &
+                                             [1, 1, 1], "STRIDE 1 1 1", debug_print_level + 1, "")
+       CALL add_generic_openpmd_arguments(subsection)
+       CALL section_add_subsection(print_key, subsection)
+       CALL section_release(subsection)
+
+       CALL section_add_subsection(section, print_key)
+       CALL section_release(print_key)
 
       CALL cp_print_key_section_create(print_key, __LOCATION__, "LOCAL_STRESS_CUBE", &
                                        description="Controls the printing of cube files with the local"// &
@@ -2691,15 +2719,59 @@ CONTAINS
                           description=" ", usage="density_cutoff 0.0001", repeats=.FALSE., n_var=1, &
                           type_of_var=real_t, default_r_val=1.0e-10_dp)
       CALL section_add_keyword(print_key, keyword)
-      CALL keyword_release(keyword)
-   END SUBROUTINE create_elf_print_section
+       CALL keyword_release(keyword)
+    END SUBROUTINE create_elf_print_section
 
-! **************************************************************************************************
-!> \brief Add projected-DOS related keywords to a DOS or XAS PDOS print section.
-!> \param print_key print key section to add keywords to
-!> \param xas_mode if true, add keywords for the XAS-specific standalone PDOS section
-! **************************************************************************************************
-   SUBROUTINE add_dos_keywords(print_key, xas_mode)
+ ! **************************************************************************************************
+ !> \brief Create the XC energy density print section with CUBE or openPMD output
+ !> \param print_key the print key section to add keywords to
+ !> \param section_name name of the section (e.g. "CUBE" or "OPENPMD")
+ !> \param description Either "cube" or "openPMD", for the descriptions.
+ !> \param stride_default default stride values
+ !> \param stride_usage usage string for stride
+ !> \param print_level print level
+ !> \param filename output filename (empty string for default)
+ ! **************************************************************************************************
+    SUBROUTINE create_xc_energy_density_section( &
+       print_key, section_name, description, stride_default, stride_usage, print_level, filename)
+
+       TYPE(section_type), POINTER :: print_key
+       CHARACTER(len=*), INTENT(IN) :: section_name, description, stride_usage, filename
+       INTEGER, DIMENSION(3), INTENT(IN) :: stride_default
+       INTEGER, INTENT(IN) :: print_level
+       TYPE(keyword_type), POINTER :: keyword
+
+       NULLIFY (keyword)
+
+       CALL cp_print_key_section_create(print_key, __LOCATION__, section_name, &
+                                        description="Controls printing of "//TRIM(ADJUSTL(description))// &
+                                        " files with the exchange-correlation energy density (exc_r) computed by GauXC. "// &
+                                        "This is the per-grid-point XC energy density that integrates to E_xc, "// &
+                                        "NOT the XC energy correction (exc_r - V_xc * rho).", &
+                                        print_level=print_level, filename=filename)
+
+       CALL keyword_create(keyword, __LOCATION__, name="stride", &
+                           description="The stride (X,Y,Z) used to write the file (larger values result in smaller files). "// &
+                           "You can provide 3 numbers (for X,Y,Z) or 1 number valid for all components.", &
+                           usage=stride_usage, n_var=-1, default_i_vals=stride_default, type_of_var=integer_t)
+       CALL section_add_keyword(print_key, keyword)
+       CALL keyword_release(keyword)
+
+       IF (description == "openPMD") THEN
+          CALL keyword_create(keyword, __LOCATION__, name="BASENAME", &
+                              description="Base name for the openPMD output files.", &
+                              usage="BASENAME output", default_c_val="dft-xc-energy-density")
+          CALL section_add_keyword(print_key, keyword)
+          CALL keyword_release(keyword)
+       END IF
+    END SUBROUTINE create_xc_energy_density_section
+
+ ! **************************************************************************************************
+ !> \brief Add projected-DOS related keywords to a DOS or XAS PDOS print section.
+ !> \param print_key print key section to add keywords to
+ !> \param xas_mode if true, add keywords for the XAS-specific standalone PDOS section
+ ! **************************************************************************************************
+    SUBROUTINE add_dos_keywords(print_key, xas_mode)
 
       TYPE(section_type), POINTER                        :: print_key
       LOGICAL, INTENT(IN)                                :: xas_mode
