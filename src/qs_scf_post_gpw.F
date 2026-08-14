@@ -149,18 +149,18 @@ MODULE qs_scf_post_gpw
    USE qs_elf_methods,                  ONLY: qs_elf_calc
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_energy_window,                ONLY: energy_windows
-    USE qs_environment_types,            ONLY: get_qs_env,&
-                                               qs_environment_type,&
-                                               set_qs_env
+   USE qs_environment_types,            ONLY: get_qs_env,&
+                                              qs_environment_type,&
+                                              set_qs_env
    USE qs_epr_hyp,                      ONLY: qs_epr_hyp_calc
    USE qs_grid_atom,                    ONLY: grid_atom_type
    USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_kind_types,                   ONLY: get_qs_kind,&
                                               qs_kind_type
-    USE qs_ks_methods,                   ONLY: calc_rho_tot_gspace,&
-                                               qs_ks_update_qs_env
-    USE qs_ks_types,                     ONLY: qs_ks_did_change,&
-                                               qs_ks_env_type
+   USE qs_ks_methods,                   ONLY: calc_rho_tot_gspace,&
+                                              qs_ks_update_qs_env
+   USE qs_ks_types,                     ONLY: qs_ks_did_change,&
+                                              qs_ks_env_type
    USE qs_kubo_transport,               ONLY: qs_scf_post_kubo_transport
    USE qs_loc_dipole,                   ONLY: loc_dipole
    USE qs_loc_states,                   ONLY: get_localization_info
@@ -172,9 +172,8 @@ MODULE qs_scf_post_gpw
                                               qs_loc_env_init,&
                                               qs_loc_init,&
                                               retain_history
-    USE qs_local_properties,             ONLY: qs_local_energy,&
-                                               qs_local_stress
-    USE qs_vxc,                          ONLY: qs_xc_density
+   USE qs_local_properties,             ONLY: qs_local_energy,&
+                                              qs_local_stress
    USE qs_mo_io,                        ONLY: write_dm_binary_restart
    USE qs_mo_methods,                   ONLY: calculate_subspace_eigenvalues,&
                                               make_mo_eig
@@ -212,6 +211,7 @@ MODULE qs_scf_post_gpw
    USE qs_scf_wfn_mix,                  ONLY: wfn_mix
    USE qs_subsys_types,                 ONLY: qs_subsys_get,&
                                               qs_subsys_type
+   USE qs_vxc,                          ONLY: qs_xc_density
    USE qs_wannier90,                    ONLY: wannier90_interface
    USE s_square_methods,                ONLY: compute_s_square
    USE scf_control_types,               ONLY: scf_control_type
@@ -234,15 +234,15 @@ MODULE qs_scf_post_gpw
              write_mo_dependent_results, &
              write_mo_free_results
 
-    CHARACTER(len=*), PARAMETER :: &
-       str_mo_cubes = "PRINT%MO_CUBES", &
-       str_mo_openpmd = "PRINT%MO_OPENPMD", &
-       str_elf_cubes = "PRINT%ELF_CUBE", &
-       str_elf_openpmd = "PRINT%ELF_OPENPMD", &
-       str_e_density_cubes = "PRINT%E_DENSITY_CUBE", &
-       str_e_density_openpmd = "PRINT%E_DENSITY_OPENPMD", &
-       str_xc_energy_density_cubes = "PRINT%XC_ENERGY_DENSITY/CUBE", &
-       str_xc_energy_density_openpmd = "PRINT%XC_ENERGY_DENSITY/OPENPMD"
+   CHARACTER(len=*), PARAMETER :: &
+      str_mo_cubes = "PRINT%MO_CUBES", &
+      str_mo_openpmd = "PRINT%MO_OPENPMD", &
+      str_elf_cubes = "PRINT%ELF_CUBE", &
+      str_elf_openpmd = "PRINT%ELF_OPENPMD", &
+      str_e_density_cubes = "PRINT%E_DENSITY_CUBE", &
+      str_e_density_openpmd = "PRINT%E_DENSITY_OPENPMD", &
+      str_xc_energy_density_cubes = "PRINT%XC_ENERGY_DENSITY/CUBE", &
+      str_xc_energy_density_openpmd = "PRINT%XC_ENERGY_DENSITY/OPENPMD"
 
    INTEGER, PARAMETER :: grid_output_cubes = 1, grid_output_openpmd = 2
 
@@ -3312,14 +3312,14 @@ CONTAINS
       ! Write cube files from the local energy
       CALL qs_scf_post_local_energy(input, logger, qs_env)
 
-       ! Write cube files from the local stress tensor
-       CALL qs_scf_post_local_stress(input, logger, qs_env)
+      ! Write cube files from the local stress tensor
+      CALL qs_scf_post_local_stress(input, logger, qs_env)
 
-       ! Write cube files from the XC energy density
-       CALL qs_scf_post_xc_energy_density(input, logger, qs_env)
+      ! Write cube files from the XC energy density
+      CALL qs_scf_post_xc_energy_density(input, logger, qs_env)
 
-       ! Write cube files from the implicit Poisson solver
-       CALL qs_scf_post_ps_implicit(input, logger, qs_env)
+      ! Write cube files from the implicit Poisson solver
+      CALL qs_scf_post_ps_implicit(input, logger, qs_env)
 
       ! post SCF finite-volume Kubo transport
       CALL qs_scf_post_kubo_transport(qs_env)
@@ -3926,151 +3926,161 @@ CONTAINS
          CALL auxbas_pw_pool%give_back_pw(stress)
       END IF
 
-       CALL timestop(handle)
+      CALL timestop(handle)
 
-    END SUBROUTINE qs_scf_post_local_stress
+   END SUBROUTINE qs_scf_post_local_stress
 
- ! **************************************************************************************************
- !> \brief Performs printing of XC energy density to cube and openPMD files
- !> \param input input
- !> \param logger the logger
- !> \param qs_env the qs_env in which the qs_env lives
- !> \par History
- !>      08.2026 created [AI agent]
- ! **************************************************************************************************
-     SUBROUTINE qs_scf_post_xc_energy_density(input, logger, qs_env)
-        TYPE(section_vals_type), POINTER                   :: input
-        TYPE(cp_logger_type), POINTER                      :: logger
-        TYPE(qs_environment_type), POINTER                 :: qs_env
+   ! **************************************************************************************************
+   !> \brief Performs printing of XC energy density to cube and openPMD files
+   !> \param input input
+   !> \param logger the logger
+   !> \param qs_env the qs_env in which the qs_env lives
+   !> \par History
+   !>      08.2026 created [AI agent]
+   ! **************************************************************************************************
+! **************************************************************************************************
+!> \brief ...
+!> \param input ...
+!> \param logger ...
+!> \param qs_env ...
+! **************************************************************************************************
+   SUBROUTINE qs_scf_post_xc_energy_density(input, logger, qs_env)
+      TYPE(section_vals_type), POINTER                   :: input
+      TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(qs_environment_type), POINTER                 :: qs_env
 
-        CHARACTER(len=*), PARAMETER :: routineN = 'qs_scf_post_xc_energy_density'
+      CHARACTER(len=*), PARAMETER :: routineN = 'qs_scf_post_xc_energy_density', &
+         str_xc_energy_density_cubes = "PRINT%XC_ENERGY_DENSITY/CUBE", &
+         str_xc_energy_density_openpmd = "PRINT%XC_ENERGY_DENSITY/OPENPMD"
 
-        CHARACTER(LEN=default_path_length)                 :: filename, my_pos_cube, mpi_filename
-        INTEGER                                            :: handle, io_unit, natom, unit_nr
-        LOGICAL                                            :: append_cube, gapw, gapw_xc, mpi_io
-        TYPE(dft_control_type), POINTER                    :: dft_control
-        TYPE(particle_list_type), POINTER                  :: particles
-        TYPE(pw_env_type), POINTER                         :: pw_env
-        TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
-        TYPE(pw_r3d_rs_type)                               :: xc_exc
-        TYPE(qs_ks_env_type), POINTER                      :: ks_env
-        TYPE(qs_rho_type), POINTER                         :: rho_struct
-        TYPE(qs_subsys_type), POINTER                      :: subsys
-        TYPE(section_vals_type), POINTER                   :: dft_section, xc_section
-        TYPE(cp_section_key)                               :: xc_energy_density_section
+      CHARACTER(LEN=default_path_length)                 :: filename, mpi_filename, my_pos_cube
+      INTEGER                                            :: handle, io_unit, natom, unit_nr
+      LOGICAL                                            :: append_cube, gapw, gapw_xc, mpi_io
+      TYPE(cp_section_key)                               :: xc_energy_density_section
+      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(particle_list_type), POINTER                  :: particles
+      TYPE(pw_env_type), POINTER                         :: pw_env
+      TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
+      TYPE(pw_r3d_rs_type)                               :: xc_exc
+      TYPE(qs_ks_env_type), POINTER                      :: ks_env
+      TYPE(qs_rho_type), POINTER                         :: rho_struct
+      TYPE(qs_subsys_type), POINTER                      :: subsys
+      TYPE(section_vals_type), POINTER                   :: dft_section, xc_section
 
-        CHARACTER(len=*), PARAMETER :: &
-           str_xc_energy_density_cubes = "PRINT%XC_ENERGY_DENSITY/CUBE", &
-           str_xc_energy_density_openpmd = "PRINT%XC_ENERGY_DENSITY/OPENPMD"
+      CALL timeset(routineN, handle)
+      io_unit = cp_logger_get_default_io_unit(logger)
 
-        CALL timeset(routineN, handle)
-        io_unit = cp_logger_get_default_io_unit(logger)
+      xc_energy_density_section = cube_or_openpmd(input, str_xc_energy_density_cubes, &
+                                                  str_xc_energy_density_openpmd, logger)
 
-        xc_energy_density_section = cube_or_openpmd(input, str_xc_energy_density_cubes, &
-                                                     str_xc_energy_density_openpmd, logger)
+      IF (xc_energy_density_section%do_output) THEN
+         dft_section => section_vals_get_subs_vals(input, "DFT")
+         CALL get_qs_env(qs_env=qs_env, dft_control=dft_control, natom=natom)
+         gapw = dft_control%qs_control%gapw
+         gapw_xc = dft_control%qs_control%gapw_xc
+         CALL get_qs_env(qs_env=qs_env, pw_env=pw_env, subsys=subsys, rho=rho_struct, &
+                         ks_env=ks_env)
+         CALL qs_subsys_get(subsys, particles=particles)
+         CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
+         CALL auxbas_pw_pool%create_pw(xc_exc)
+         CALL pw_zero(xc_exc)
 
-        IF (xc_energy_density_section%do_output) THEN
-           dft_section => section_vals_get_subs_vals(input, "DFT")
-           CALL get_qs_env(qs_env=qs_env, dft_control=dft_control, natom=natom)
-           gapw = dft_control%qs_control%gapw
-           gapw_xc = dft_control%qs_control%gapw_xc
-           CALL get_qs_env(qs_env=qs_env, pw_env=pw_env, subsys=subsys, rho=rho_struct, &
-                          ks_env=ks_env)
-           CALL qs_subsys_get(subsys, particles=particles)
-           CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
-           CALL auxbas_pw_pool%create_pw(xc_exc)
-           CALL pw_zero(xc_exc)
+         xc_section => section_vals_get_subs_vals(input, "DFT%XC")
 
-           xc_section => section_vals_get_subs_vals(input, "DFT%XC")
+         CALL qs_xc_density(ks_env, rho_struct, xc_section, exc=xc_exc)
 
-           CALL qs_xc_density(ks_env, rho_struct, xc_section, exc=xc_exc)
+         IF (xc_energy_density_section%grid_output == grid_output_cubes) THEN
+            append_cube = section_get_lval(dft_section, "PRINT%XC_ENERGY_DENSITY/CUBE%APPEND")
+            my_pos_cube = "REWIND"
+            IF (append_cube) THEN
+               my_pos_cube = "APPEND"
+            END IF
+            mpi_io = .TRUE.
+            unit_nr = xc_energy_density_section%print_key_unit_nr( &
+                      logger, &
+                      input, &
+                      xc_energy_density_section%absolute_section_key, &
+                      extension=".cube", &
+                      middle_name="xc_energy_density", &
+                      file_position=my_pos_cube, &
+                      log_filename=.FALSE., &
+                      mpi_io=mpi_io, &
+                      fout=mpi_filename)
+            IF (io_unit > 0) THEN
+               IF (.NOT. mpi_io) THEN
+                  INQUIRE (UNIT=unit_nr, NAME=filename)
+               ELSE
+                  filename = mpi_filename
+               END IF
+               IF (gapw .OR. gapw_xc) THEN
+                  WRITE (UNIT=io_unit, FMT="(/,T3,A,A)") &
+                     "The soft part of the XC energy density is written to the file: ", TRIM(ADJUSTL(filename))
+               ELSE
+                  WRITE (UNIT=io_unit, FMT="(/,T3,A,A)") &
+                     "The XC energy density is written to the file: ", TRIM(ADJUSTL(filename))
+               END IF
+            END IF
+            CALL xc_energy_density_section%write_pw(xc_exc, unit_nr, "XC ENERGY DENSITY", &
+                                                    particles=particles, &
+                                                    stride=section_get_ivals(dft_section, "PRINT%XC_ENERGY_DENSITY/CUBE%STRIDE"), &
+                                                    mpi_io=mpi_io)
+            CALL xc_energy_density_section%print_key_finished_output(unit_nr, logger, input, &
+                                                                     xc_energy_density_section%absolute_section_key, &
+                                                                     mpi_io=mpi_io)
+         ELSE IF (xc_energy_density_section%grid_output == grid_output_openpmd) THEN
+            mpi_io = .TRUE.
+            unit_nr = xc_energy_density_section%print_key_unit_nr( &
+                      logger, &
+                      input, &
+                      xc_energy_density_section%absolute_section_key, &
+                      extension=".h5", &
+                      middle_name="xc_energy_density", &
+                      file_position="REWIND", &
+                      log_filename=.FALSE., &
+                      mpi_io=mpi_io, &
+                      fout=mpi_filename, &
+                      openpmd_basename="dft-xc-energy-density", &
+                      openpmd_unit_dimension=openpmd_unit_dimension_density, &
+                      openpmd_unit_si=openpmd_unit_si_density, &
+                      sim_time=qs_env%sim_time)
+            IF (io_unit > 0) THEN
+               filename = mpi_filename
+               WRITE (UNIT=io_unit, FMT="(/,T2,A,/,/,T2,A)") &
+                  "XC energy density is written in "//xc_energy_density_section%format_name//" file format to the file:", &
+                  TRIM(filename)
+            END IF
+            CALL xc_energy_density_section%write_pw(xc_exc, unit_nr, "XC ENERGY DENSITY", &
+                                                    particles=particles, &
+                                                  stride=section_get_ivals(dft_section, "PRINT%XC_ENERGY_DENSITY/OPENPMD%STRIDE"), &
+                                                    mpi_io=mpi_io)
+            CALL xc_energy_density_section%print_key_finished_output(unit_nr, logger, input, &
+                                                                     xc_energy_density_section%absolute_section_key, &
+                                                                     mpi_io=mpi_io)
+         END IF
 
-          IF (xc_energy_density_section%grid_output == grid_output_cubes) THEN
-             append_cube = section_get_lval(dft_section, "PRINT%XC_ENERGY_DENSITY/CUBE%APPEND")
-             my_pos_cube = "REWIND"
-             IF (append_cube) THEN
-                my_pos_cube = "APPEND"
-             END IF
-             mpi_io = .TRUE.
-             unit_nr = xc_energy_density_section%print_key_unit_nr( &
-                       logger, &
-                       input, &
-                       xc_energy_density_section%absolute_section_key, &
-                       extension=".cube", &
-                       middle_name="xc_energy_density", &
-                       file_position=my_pos_cube, &
-                       log_filename=.FALSE., &
-                       mpi_io=mpi_io, &
-                       fout=mpi_filename)
-             IF (io_unit > 0) THEN
-                IF (.NOT. mpi_io) THEN
-                   INQUIRE (UNIT=unit_nr, NAME=filename)
-                ELSE
-                   filename = mpi_filename
-                END IF
-                IF (gapw .OR. gapw_xc) THEN
-                   WRITE (UNIT=io_unit, FMT="(/,T3,A,A)") &
-                      "The soft part of the XC energy density is written to the file: ", TRIM(ADJUSTL(filename))
-                ELSE
-                   WRITE (UNIT=io_unit, FMT="(/,T3,A,A)") &
-                      "The XC energy density is written to the file: ", TRIM(ADJUSTL(filename))
-                END IF
-             END IF
-             CALL xc_energy_density_section%write_pw(xc_exc, unit_nr, "XC ENERGY DENSITY", &
-                                                      particles=particles, &
-                                                      stride=section_get_ivals(dft_section, "PRINT%XC_ENERGY_DENSITY/CUBE%STRIDE"), &
-                                                      mpi_io=mpi_io)
-             CALL xc_energy_density_section%print_key_finished_output(unit_nr, logger, input, &
-                                                                       xc_energy_density_section%absolute_section_key, &
-                                                                       mpi_io=mpi_io)
-          ELSE IF (xc_energy_density_section%grid_output == grid_output_openpmd) THEN
-             mpi_io = .TRUE.
-             unit_nr = xc_energy_density_section%print_key_unit_nr( &
-                       logger, &
-                       input, &
-                       xc_energy_density_section%absolute_section_key, &
-                       extension=".h5", &
-                       middle_name="xc_energy_density", &
-                       file_position="REWIND", &
-                       log_filename=.FALSE., &
-                       mpi_io=mpi_io, &
-                       fout=mpi_filename, &
-                       openpmd_basename="dft-xc-energy-density", &
-                       openpmd_unit_dimension=openpmd_unit_dimension_density, &
-                       openpmd_unit_si=openpmd_unit_si_density, &
-                       sim_time=qs_env%sim_time)
-             IF (io_unit > 0) THEN
-                filename = mpi_filename
-                WRITE (UNIT=io_unit, FMT="(/,T2,A,/,/,T2,A)") &
-                   "XC energy density is written in "//xc_energy_density_section%format_name//" file format to the file:", &
-                   TRIM(filename)
-             END IF
-             CALL xc_energy_density_section%write_pw(xc_exc, unit_nr, "XC ENERGY DENSITY", &
-                                                      particles=particles, &
-                                                      stride=section_get_ivals(dft_section, "PRINT%XC_ENERGY_DENSITY/OPENPMD%STRIDE"), &
-                                                      mpi_io=mpi_io)
-             CALL xc_energy_density_section%print_key_finished_output(unit_nr, logger, input, &
-                                                                       xc_energy_density_section%absolute_section_key, &
-                                                                       mpi_io=mpi_io)
-          END IF
+         CALL auxbas_pw_pool%give_back_pw(xc_exc)
+      END IF
 
-          CALL auxbas_pw_pool%give_back_pw(xc_exc)
-       END IF
+      CALL timestop(handle)
 
-       CALL timestop(handle)
+   END SUBROUTINE qs_scf_post_xc_energy_density
 
-    END SUBROUTINE qs_scf_post_xc_energy_density
-
- ! **************************************************************************************************
- !> \brief Performs printing of cube files related to the implicit Poisson solver
- !> \param input input
- !> \param logger the logger
- !> \param qs_env the qs_env in which the qs_env lives
- !> \par History
- !>      03.2016 refactored from write_mo_free_results [Hossein Bani-Hashemian]
- !> \author Mohammad Hossein Bani-Hashemian
- ! **************************************************************************************************
-    SUBROUTINE qs_scf_post_ps_implicit(input, logger, qs_env)
+   ! **************************************************************************************************
+   !> \brief Performs printing of cube files related to the implicit Poisson solver
+   !> \param input input
+   !> \param logger the logger
+   !> \param qs_env the qs_env in which the qs_env lives
+   !> \par History
+   !>      03.2016 refactored from write_mo_free_results [Hossein Bani-Hashemian]
+   !> \author Mohammad Hossein Bani-Hashemian
+   ! **************************************************************************************************
+! **************************************************************************************************
+!> \brief ...
+!> \param input ...
+!> \param logger ...
+!> \param qs_env ...
+! **************************************************************************************************
+   SUBROUTINE qs_scf_post_ps_implicit(input, logger, qs_env)
       TYPE(section_vals_type), POINTER                   :: input
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(qs_environment_type), POINTER                 :: qs_env
