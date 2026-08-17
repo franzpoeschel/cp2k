@@ -3949,9 +3949,7 @@ CONTAINS
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(qs_environment_type), POINTER                 :: qs_env
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'qs_scf_post_xc_energy_density', &
-         str_xc_energy_density_cubes = "PRINT%XC_ENERGY_DENSITY_CUBE", &
-         str_xc_energy_density_openpmd = "PRINT%XC_ENERGY_DENSITY_OPENPMD"
+      CHARACTER(len=*), PARAMETER :: routineN = 'qs_scf_post_xc_energy_density'
 
       CHARACTER(LEN=default_path_length)                 :: filename, mpi_filename, my_pos_cube
       INTEGER                                            :: handle, io_unit, natom, unit_nr
@@ -3969,100 +3967,77 @@ CONTAINS
                                                             xc_energy_density_section_vals, &
                                                             xc_section
 
-      CALL timeset(routineN, handle)
       io_unit = cp_logger_get_default_io_unit(logger)
 
       xc_energy_density_section = cube_or_openpmd(input, str_xc_energy_density_cubes, &
                                                   str_xc_energy_density_openpmd, logger)
 
-      IF (xc_energy_density_section%do_output) THEN
-         xc_energy_density_section_vals => section_vals_get_subs_vals(input, xc_energy_density_section%absolute_section_key)
-         dft_section => section_vals_get_subs_vals(input, "DFT")
-         CALL get_qs_env(qs_env=qs_env, dft_control=dft_control, natom=natom)
-         gapw = dft_control%qs_control%gapw
-         gapw_xc = dft_control%qs_control%gapw_xc
-         CALL get_qs_env(qs_env=qs_env, pw_env=pw_env, subsys=subsys, rho=rho_struct, &
-                         ks_env=ks_env)
-         CALL qs_subsys_get(subsys, particles=particles)
-         CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
-         CALL auxbas_pw_pool%create_pw(xc_exc)
-         CALL pw_zero(xc_exc)
-
-         xc_section => section_vals_get_subs_vals(input, "DFT%XC")
-
-         CALL qs_xc_density(ks_env, rho_struct, xc_section, exc=xc_exc)
-
-         IF (xc_energy_density_section%grid_output == grid_output_cubes) THEN
-            append_cube = section_get_lval(xc_energy_density_section_vals, "APPEND")
-            my_pos_cube = "REWIND"
-            IF (append_cube) THEN
-               my_pos_cube = "APPEND"
-            END IF
-            mpi_io = .TRUE.
-            unit_nr = xc_energy_density_section%print_key_unit_nr( &
-                      logger, &
-                      input, &
-                      xc_energy_density_section%absolute_section_key, &
-                      extension=".cube", &
-                      middle_name="xc_energy_density", &
-                      file_position=my_pos_cube, &
-                      log_filename=.FALSE., &
-                      mpi_io=mpi_io, &
-                      fout=mpi_filename)
-            IF (io_unit > 0) THEN
-               IF (.NOT. mpi_io) THEN
-                  INQUIRE (UNIT=unit_nr, NAME=filename)
-               ELSE
-                  filename = mpi_filename
-               END IF
-               IF (gapw .OR. gapw_xc) THEN
-                  WRITE (UNIT=io_unit, FMT="(/,T3,A,A)") &
-                     "The soft part of the XC energy density is written to the file: ", TRIM(ADJUSTL(filename))
-               ELSE
-                  WRITE (UNIT=io_unit, FMT="(/,T3,A,A)") &
-                     "The XC energy density is written to the file: ", TRIM(ADJUSTL(filename))
-               END IF
-            END IF
-            CALL xc_energy_density_section%write_pw(xc_exc, unit_nr, "XC ENERGY DENSITY", &
-                                                    particles=particles, &
-                                                    stride=section_get_ivals(xc_energy_density_section_vals, "STRIDE"), &
-                                                    mpi_io=mpi_io)
-            CALL xc_energy_density_section%print_key_finished_output(unit_nr, logger, input, &
-                                                                     xc_energy_density_section%absolute_section_key, &
-                                                                     mpi_io=mpi_io)
-         ELSE IF (xc_energy_density_section%grid_output == grid_output_openpmd) THEN
-            mpi_io = .TRUE.
-            unit_nr = xc_energy_density_section%print_key_unit_nr( &
-                      logger, &
-                      input, &
-                      xc_energy_density_section%absolute_section_key, &
-                      extension=".h5", &
-                      middle_name="xc_energy_density", &
-                      file_position="REWIND", &
-                      log_filename=.FALSE., &
-                      mpi_io=mpi_io, &
-                      fout=mpi_filename, &
-                      openpmd_basename="dft-xc-energy-density", &
-                      openpmd_unit_dimension=openpmd_unit_dimension_density, &
-                      openpmd_unit_si=openpmd_unit_si_density, &
-                      sim_time=qs_env%sim_time)
-            IF (io_unit > 0) THEN
-               filename = mpi_filename
-               WRITE (UNIT=io_unit, FMT="(/,T2,A,/,/,T2,A)") &
-                  "XC energy density is written in "//xc_energy_density_section%format_name//" file format to the file:", &
-                  TRIM(filename)
-            END IF
-            CALL xc_energy_density_section%write_pw(xc_exc, unit_nr, "XC ENERGY DENSITY", &
-                                                    particles=particles, &
-                                                    stride=section_get_ivals(xc_energy_density_section_vals, "STRIDE"), &
-                                                    mpi_io=mpi_io)
-            CALL xc_energy_density_section%print_key_finished_output(unit_nr, logger, input, &
-                                                                     xc_energy_density_section%absolute_section_key, &
-                                                                     mpi_io=mpi_io)
-         END IF
-
-         CALL auxbas_pw_pool%give_back_pw(xc_exc)
+      IF (.NOT. xc_energy_density_section%do_output) THEN
+         RETURN
       END IF
+
+      CALL timeset(routineN, handle)
+      xc_energy_density_section_vals => section_vals_get_subs_vals(input, xc_energy_density_section%absolute_section_key)
+      dft_section => section_vals_get_subs_vals(input, "DFT")
+      CALL get_qs_env(qs_env=qs_env, dft_control=dft_control, natom=natom)
+      gapw = dft_control%qs_control%gapw
+      gapw_xc = dft_control%qs_control%gapw_xc
+      CALL get_qs_env(qs_env=qs_env, pw_env=pw_env, subsys=subsys, rho=rho_struct, &
+                      ks_env=ks_env)
+      CALL qs_subsys_get(subsys, particles=particles)
+      CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
+      CALL auxbas_pw_pool%create_pw(xc_exc)
+      CALL pw_zero(xc_exc)
+
+      xc_section => section_vals_get_subs_vals(input, "DFT%XC")
+
+      CALL qs_xc_density(ks_env, rho_struct, xc_section, exc=xc_exc)
+
+      my_pos_cube = "REWIND"
+      IF (xc_energy_density_section%grid_output == grid_output_cubes) THEN
+         append_cube = section_get_lval(xc_energy_density_section_vals, "APPEND")
+         IF (append_cube) THEN
+            my_pos_cube = "APPEND"
+         END IF
+      END IF
+      mpi_io = .TRUE.
+      unit_nr = xc_energy_density_section%print_key_unit_nr( &
+                logger, &
+                input, &
+                xc_energy_density_section%absolute_section_key, &
+                extension=".cube", &
+                middle_name="xc_energy_density", &
+                file_position=my_pos_cube, &
+                log_filename=.FALSE., &
+                mpi_io=mpi_io, &
+                fout=mpi_filename, &
+                openpmd_basename="dft-xc-energy-density", &
+                openpmd_unit_dimension=openpmd_unit_dimension_density, &
+                openpmd_unit_si=openpmd_unit_si_density, &
+                sim_time=qs_env%sim_time)
+      IF (io_unit > 0) THEN
+         IF (.NOT. mpi_io) THEN
+            INQUIRE (UNIT=unit_nr, NAME=filename)
+         ELSE
+            filename = mpi_filename
+         END IF
+         IF (gapw .OR. gapw_xc) THEN
+            WRITE (UNIT=io_unit, FMT="(/,T3,A,A)") &
+               "The soft part of the XC energy density is written to the file: ", TRIM(ADJUSTL(filename))
+         ELSE
+            WRITE (UNIT=io_unit, FMT="(/,T3,A,A)") &
+               "The XC energy density is written to the file: ", TRIM(ADJUSTL(filename))
+         END IF
+      END IF
+      CALL xc_energy_density_section%write_pw(xc_exc, unit_nr, "XC ENERGY DENSITY", &
+                                              particles=particles, &
+                                              stride=section_get_ivals(xc_energy_density_section_vals, "STRIDE"), &
+                                              mpi_io=mpi_io)
+      CALL xc_energy_density_section%print_key_finished_output(unit_nr, logger, input, &
+                                                               xc_energy_density_section%absolute_section_key, &
+                                                               mpi_io=mpi_io)
+
+      CALL auxbas_pw_pool%give_back_pw(xc_exc)
 
       CALL timestop(handle)
 
