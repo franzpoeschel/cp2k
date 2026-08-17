@@ -234,15 +234,15 @@ MODULE qs_scf_post_gpw
              write_mo_dependent_results, &
              write_mo_free_results
 
-   CHARACTER(len=*), PARAMETER :: &
-      str_mo_cubes = "PRINT%MO_CUBES", &
-      str_mo_openpmd = "PRINT%MO_OPENPMD", &
-      str_elf_cubes = "PRINT%ELF_CUBE", &
-      str_elf_openpmd = "PRINT%ELF_OPENPMD", &
-      str_e_density_cubes = "PRINT%E_DENSITY_CUBE", &
-      str_e_density_openpmd = "PRINT%E_DENSITY_OPENPMD", &
-      str_xc_energy_density_cubes = "PRINT%XC_ENERGY_DENSITY/CUBE", &
-      str_xc_energy_density_openpmd = "PRINT%XC_ENERGY_DENSITY/OPENPMD"
+    CHARACTER(len=*), PARAMETER :: &
+       str_mo_cubes = "PRINT%MO_CUBES", &
+       str_mo_openpmd = "PRINT%MO_OPENPMD", &
+       str_elf_cubes = "PRINT%ELF_CUBE", &
+       str_elf_openpmd = "PRINT%ELF_OPENPMD", &
+       str_e_density_cubes = "PRINT%E_DENSITY_CUBE", &
+       str_e_density_openpmd = "PRINT%E_DENSITY_OPENPMD", &
+       str_xc_energy_density_cubes = "PRINT%XC_ENERGY_DENSITY_CUBE", &
+       str_xc_energy_density_openpmd = "PRINT%XC_ENERGY_DENSITY_OPENPMD"
 
    INTEGER, PARAMETER :: grid_output_cubes = 1, grid_output_openpmd = 2
 
@@ -3949,9 +3949,9 @@ CONTAINS
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(qs_environment_type), POINTER                 :: qs_env
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'qs_scf_post_xc_energy_density', &
-         str_xc_energy_density_cubes = "PRINT%XC_ENERGY_DENSITY/CUBE", &
-         str_xc_energy_density_openpmd = "PRINT%XC_ENERGY_DENSITY/OPENPMD"
+    CHARACTER(len=*), PARAMETER :: routineN = 'qs_scf_post_xc_energy_density', &
+       str_xc_energy_density_cubes = "PRINT%XC_ENERGY_DENSITY_CUBE", &
+       str_xc_energy_density_openpmd = "PRINT%XC_ENERGY_DENSITY_OPENPMD"
 
       CHARACTER(LEN=default_path_length)                 :: filename, mpi_filename, my_pos_cube
       INTEGER                                            :: handle, io_unit, natom, unit_nr
@@ -3965,7 +3965,7 @@ CONTAINS
       TYPE(qs_ks_env_type), POINTER                      :: ks_env
       TYPE(qs_rho_type), POINTER                         :: rho_struct
       TYPE(qs_subsys_type), POINTER                      :: subsys
-      TYPE(section_vals_type), POINTER                   :: dft_section, xc_section
+      TYPE(section_vals_type), POINTER                   :: dft_section, xc_section, xc_energy_density_section_vals
 
       CALL timeset(routineN, handle)
       io_unit = cp_logger_get_default_io_unit(logger)
@@ -3973,9 +3973,10 @@ CONTAINS
       xc_energy_density_section = cube_or_openpmd(input, str_xc_energy_density_cubes, &
                                                   str_xc_energy_density_openpmd, logger)
 
-      IF (xc_energy_density_section%do_output) THEN
-         dft_section => section_vals_get_subs_vals(input, "DFT")
-         CALL get_qs_env(qs_env=qs_env, dft_control=dft_control, natom=natom)
+       IF (xc_energy_density_section%do_output) THEN
+          xc_energy_density_section_vals => section_vals_get_subs_vals(input, xc_energy_density_section%absolute_section_key)
+          dft_section => section_vals_get_subs_vals(input, "DFT")
+          CALL get_qs_env(qs_env=qs_env, dft_control=dft_control, natom=natom)
          gapw = dft_control%qs_control%gapw
          gapw_xc = dft_control%qs_control%gapw_xc
          CALL get_qs_env(qs_env=qs_env, pw_env=pw_env, subsys=subsys, rho=rho_struct, &
@@ -3989,8 +3990,8 @@ CONTAINS
 
          CALL qs_xc_density(ks_env, rho_struct, xc_section, exc=xc_exc)
 
-         IF (xc_energy_density_section%grid_output == grid_output_cubes) THEN
-            append_cube = section_get_lval(dft_section, "PRINT%XC_ENERGY_DENSITY/CUBE%APPEND")
+          IF (xc_energy_density_section%grid_output == grid_output_cubes) THEN
+             append_cube = section_get_lval(xc_energy_density_section_vals, "APPEND")
             my_pos_cube = "REWIND"
             IF (append_cube) THEN
                my_pos_cube = "APPEND"
@@ -4022,7 +4023,7 @@ CONTAINS
             END IF
             CALL xc_energy_density_section%write_pw(xc_exc, unit_nr, "XC ENERGY DENSITY", &
                                                     particles=particles, &
-                                                    stride=section_get_ivals(dft_section, "PRINT%XC_ENERGY_DENSITY/CUBE%STRIDE"), &
+                                                    stride=section_get_ivals(xc_energy_density_section_vals, "STRIDE"), &
                                                     mpi_io=mpi_io)
             CALL xc_energy_density_section%print_key_finished_output(unit_nr, logger, input, &
                                                                      xc_energy_density_section%absolute_section_key, &
@@ -4051,7 +4052,7 @@ CONTAINS
             END IF
             CALL xc_energy_density_section%write_pw(xc_exc, unit_nr, "XC ENERGY DENSITY", &
                                                     particles=particles, &
-                                                  stride=section_get_ivals(dft_section, "PRINT%XC_ENERGY_DENSITY/OPENPMD%STRIDE"), &
+                                                   stride=section_get_ivals(xc_energy_density_section_vals, "STRIDE"), &
                                                     mpi_io=mpi_io)
             CALL xc_energy_density_section%print_key_finished_output(unit_nr, logger, input, &
                                                                      xc_energy_density_section%absolute_section_key, &

@@ -1152,12 +1152,8 @@ CONTAINS
       CALL section_add_subsection(section, print_key)
       CALL section_release(print_key)
 
-      CALL cp_print_key_section_create(print_key, __LOCATION__, "XC_ENERGY_DENSITY", &
-                                       description="Controls the printing of exchange-correlation energy density (exc_r)"// &
-                                      " computed by GauXC. This is the per-grid-point XC energy density that integrates to E_xc.", &
-                                       print_level=debug_print_level, filename="")
       NULLIFY (subsection)
-      CALL create_xc_energy_density_section(subsection, "CUBE", &
+      CALL create_xc_energy_density_section(subsection, "XC_ENERGY_DENSITY_CUBE", &
                                             "cube", &
                                             [2, 2, 2], "STRIDE 2 2 2", debug_print_level, "")
       CALL keyword_create(keyword, __LOCATION__, name="APPEND", &
@@ -1166,19 +1162,16 @@ CONTAINS
       CALL section_add_keyword(subsection, keyword)
       CALL keyword_release(keyword)
 
-      CALL section_add_subsection(print_key, subsection)
+      CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
       NULLIFY (subsection)
-      CALL create_xc_energy_density_section(subsection, "OPENPMD", &
+      CALL create_xc_energy_density_section(subsection, "XC_ENERGY_DENSITY_OPENPMD", &
                                             "openPMD", &
                                             [1, 1, 1], "STRIDE 1 1 1", debug_print_level + 1, "")
       CALL add_generic_openpmd_arguments(subsection)
-      CALL section_add_subsection(print_key, subsection)
+      CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
-
-      CALL section_add_subsection(section, print_key)
-      CALL section_release(print_key)
 
       CALL cp_print_key_section_create(print_key, __LOCATION__, "LOCAL_STRESS_CUBE", &
                                        description="Controls the printing of cube files with the local"// &
