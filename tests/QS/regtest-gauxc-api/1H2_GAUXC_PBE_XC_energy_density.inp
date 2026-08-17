@@ -8,8 +8,8 @@
   METHOD QS
   &DFT
     BASIS_SET_FILE_NAME GTH_BASIS_SETS
-    POTENTIAL_FILE_NAME GTH_POTENTIALS
     MULTIPLICITY 1
+    POTENTIAL_FILE_NAME GTH_POTENTIALS
     UKS FALSE
     &MGRID
       CUTOFF 400
@@ -18,6 +18,19 @@
     &POISSON
       PERIODIC XYZ
     &END POISSON
+    &PRINT
+      &LOCAL_ENERGY_CUBE
+      &END LOCAL_ENERGY_CUBE
+      &XC_ENERGY_DENSITY
+        &CUBE
+          STRIDE 2 2 2
+        &END CUBE
+        &OPENPMD
+          BASENAME "xc_energy_density"
+          STRIDE 1 1 1
+        &END OPENPMD
+      &END XC_ENERGY_DENSITY
+    &END PRINT
     &QS
       EPS_DEFAULT 1.0E-10
       EXTRAPOLATION USE_PREV_WF
@@ -38,19 +51,6 @@
         &END GAUXC
       &END XC_FUNCTIONAL
     &END XC
-    &PRINT
-      &LOCAL_ENERGY_CUBE
-      &END LOCAL_ENERGY_CUBE
-      &XC_ENERGY_DENSITY
-        &CUBE
-          STRIDE 2 2 2
-        &END CUBE
-        &OPENPMD
-          STRIDE 1 1 1
-          BASENAME "xc_energy_density"
-        &END OPENPMD
-      &END XC_ENERGY_DENSITY
-    &END PRINT
   &END DFT
   &SUBSYS
     &CELL
