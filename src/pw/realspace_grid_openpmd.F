@@ -444,29 +444,7 @@ CONTAINS
       num_pe = pw%pw_grid%para%group%num_pe
 
       IF (ALL(my_stride == 1)) THEN
-         #:set tf = [True, False]
-         #:for i in tf
-            #:for j in tf
-               #:for k in tf
-                  #:set i1 = "L1:0"         if i else "0:U1"
-                  #:set i2 = "L2:0"         if j else "0:U2"
-                  #:set i3 = "L3:0"         if k else "0:U3"
-                  #:set o1 = "offset(1)-L1" if i else "offset(1)"
-                  #:set o2 = "offset(2)-L2" if j else "offset(2)"
-                  #:set o3 = "offset(3)-L3" if k else "offset(3)"
-                  #:set e1 = "U1"           if i else "-L1"
-                  #:set e2 = "U2"           if j else "-L2"
-                  #:set e3 = "U3"           if k else "-L3"
-                  unresolved_write_buffer = &
-                     scalar_mesh%store_chunk_span_3d_double( &
-                     [${o1}$, ${o2}$, ${o3}$], &
-                     [${e1}$, ${e2}$, ${e3}$])
-                  write_buffer => unresolved_write_buffer%resolve_double(DEALLOCATE=.TRUE.)
-                  write_buffer(:, :, :) = pw%array(${i1}$, ${i2}$, ${i3}$)
-               #:endfor
-            #:endfor
-         #:endfor
-
+         CALL scalar_mesh%store_chunk(pw%array(L1:U1, L2:U2, L3:U3), offset)
          ! Are there some conditions under which we can skip this flush?
          attr = openpmd_data%iteration%as_attributable()
          CALL attr%series_flush("hdf5.independent_stores = false")
