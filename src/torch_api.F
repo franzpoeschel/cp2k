@@ -79,7 +79,7 @@ MODULE torch_api
    PUBLIC :: torch_tensor_reset_from_array
    PUBLIC :: torch_tensor_data_ptr, torch_tensor_backward, torch_tensor_backward_scalar
    PUBLIC :: torch_tensor_grad, torch_tensor_grad_batch3
-   PUBLIC :: torch_tensor_to_device_leaf
+   PUBLIC :: torch_tensor_to_cpu, torch_tensor_to_device_leaf
    PUBLIC :: torch_tensor_item_double, torch_tensor_weighted_sum
    PUBLIC :: torch_dict_type, torch_dict_clone, torch_dict_create, torch_dict_insert
    PUBLIC :: torch_dict_get, torch_dict_release
@@ -461,6 +461,36 @@ CONTAINS
       MARK_USED(grad)
 #endif
    END SUBROUTINE torch_tensor_grad
+
+! **************************************************************************************************
+!> \brief Copies a Torch tensor to CPU memory.
+!> \param tensor ...
+!> \param result ...
+! **************************************************************************************************
+   SUBROUTINE torch_tensor_to_cpu(tensor, result)
+      TYPE(torch_tensor_type), INTENT(IN)                :: tensor
+      TYPE(torch_tensor_type), INTENT(INOUT)             :: result
+
+#if defined(__LIBTORCH)
+      INTERFACE
+         SUBROUTINE torch_c_tensor_to_cpu(tensor, result) &
+            BIND(C, name="torch_c_tensor_to_cpu")
+            IMPORT :: C_PTR
+            TYPE(C_PTR), VALUE                           :: tensor
+            TYPE(C_PTR)                                  :: result
+         END SUBROUTINE torch_c_tensor_to_cpu
+      END INTERFACE
+
+      CPASSERT(C_ASSOCIATED(tensor%c_ptr))
+      CPASSERT(.NOT. C_ASSOCIATED(result%c_ptr))
+      CALL torch_c_tensor_to_cpu(tensor=tensor%c_ptr, result=result%c_ptr)
+      CPASSERT(C_ASSOCIATED(result%c_ptr))
+#else
+      CPABORT("CP2K compiled without the Torch library.")
+      MARK_USED(tensor)
+      MARK_USED(result)
+#endif
+   END SUBROUTINE torch_tensor_to_cpu
 
 ! **************************************************************************************************
 !> \brief Copies three autograd gradients to CPU memory.

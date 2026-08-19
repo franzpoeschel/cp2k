@@ -556,6 +556,23 @@ void torch_c_tensor_grad_batch3(const torch_c_tensor_t *tensor1,
 }
 
 /*******************************************************************************
+ * \brief Copies a Torch tensor to CPU memory.
+ *        The returned tensor is contiguous and detached from the autograd graph.
+ * \author Ole Schuett
+ ******************************************************************************/
+void torch_c_tensor_to_cpu(const torch_c_tensor_t *tensor,
+                           torch_c_tensor_t **result) {
+  c10::OptionalDeviceGuard guard;
+  get_device_with_guard(guard);
+  torch::Tensor host =
+      tensor->detach().to(torch::kFloat64).cpu().contiguous();
+  if (tensor->is_cpu() && tensor->scalar_type() == torch::kFloat64) {
+    host = host.clone();
+  }
+  *result = new torch_c_tensor_t(std::move(host));
+}
+
+/*******************************************************************************
  * \brief Releases a Torch tensor and all its ressources.
  * \author Ole Schuett
  ******************************************************************************/
