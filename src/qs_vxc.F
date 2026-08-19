@@ -56,10 +56,11 @@ MODULE qs_vxc
    USE qs_rho_types,                    ONLY: qs_rho_get,&
                                               qs_rho_type
    USE skala_gpw_functional,            ONLY: get_gauxc_section,&
-                                              native_skala_gapw_composite_direct_ao,&
-                                              native_skala_gapw_composite_reference,&
-                                              skala_gpw_eval,&
-                                              xc_section_uses_native_skala_evaluator
+                                               native_skala_gapw_composite_direct_ao,&
+                                               native_skala_gapw_composite_reference,&
+                                               skala_gpw_eval,&
+                                               skala_gpw_exc_density,&
+                                               xc_section_uses_native_skala_evaluator
    USE virial_types,                    ONLY: virial_type
    USE xc,                              ONLY: calc_xc_density,&
                                               xc_exc_calc,&
@@ -1229,13 +1230,14 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'qs_xc_density'
 
       INTEGER                                            :: handle, ispin, mspin, myfun, nspins, vdw
-      LOGICAL                                            :: rho_g_valid, tau_g_valid, tau_r_valid, &
-                                                            uf_grid, vdW_nl
+      LOGICAL                                            :: native_skala_grid, rho_g_valid, &
+                                                            tau_g_valid, tau_r_valid, uf_grid, vdW_nl
       REAL(KIND=dp)                                      :: edisp, excint, factor, rho_cutoff
       REAL(KIND=dp), DIMENSION(3, 3)                     :: vdum
       TYPE(cell_type), POINTER                           :: cell
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(mp_para_env_type), POINTER                    :: para_env
+      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(pw_c1d_gs_type), DIMENSION(:), POINTER        :: rho_g, rho_struct_g, tau_g, tau_struct_g
       TYPE(pw_c1d_gs_type), POINTER                      :: rho_nlcc_g, rho_nlcc_g_use, rho_nlcc_g_xc
       TYPE(pw_env_type), POINTER                         :: pw_env
@@ -1252,12 +1254,13 @@ CONTAINS
                rho_g, rho_struct_g, tau_g, tau_struct_g, rho_nlcc, rho_nlcc_g, &
                rho_nlcc_g_use, rho_nlcc_g_xc, rho_nlcc_use, rho_nlcc_xc, rho_r, &
                rho_struct_r, tau_r, tau_struct_r, vxc_rho, vxc_tau, weights, &
-               weights_use, weights_xc)
+               weights_use, weights_xc, particle_set)
 
       CALL get_ks_env(ks_env, &
                       dft_control=dft_control, &
                       pw_env=pw_env, &
                       cell=cell, &
+                      particle_set=particle_set, &
                       xcint_weights=weights, &
                       rho_nlcc=rho_nlcc, &
                       rho_nlcc_g=rho_nlcc_g)
@@ -1365,13 +1368,26 @@ CONTAINS
             END DO
          END IF
          NULLIFY (vxc_rho, vxc_tau)
-         CALL xc_vxc_pw_create(vxc_rho=vxc_rho, vxc_tau=vxc_tau, rho_r=rho_r, &
-                               rho_g=rho_g, tau=tau_r, exc=excint, &
-                               xc_section=xc_section, &
-                               weights=weights_use, pw_pool=xc_pw_pool, &
-                               compute_virial=.FALSE., &
-                               virial_xc=vdum, &
-                               exc_r=exc_r)
+         native_skala_grid = xc_section_uses_native_skala_evaluator(xc_section)
+         IF (native_skala_grid) THEN
+            IF (PRESENT(vxc) .OR. PRESENT(vtau) .OR. PRESENT(xc_ener) .OR. vdW_nl) THEN
+               CALL cp_abort(__LOCATION__, &
+                             "The native SKALA GPW path in qs_xc_density only supports the exc "// &
+                             "energy-density output.")
+            END IF
+            CALL skala_gpw_exc_density(exc_r=exc_r, rho_r=rho_r, rho_g=rho_g, tau=tau_r, &
+                                       xc_section=xc_section, weights=weights_use, &
+                                       pw_pool=xc_pw_pool, particle_set=particle_set, cell=cell)
+            excint = 0.0_dp
+         ELSE
+            CALL xc_vxc_pw_create(vxc_rho=vxc_rho, vxc_tau=vxc_tau, rho_r=rho_r, &
+                                  rho_g=rho_g, tau=tau_r, exc=excint, &
+                                  xc_section=xc_section, &
+                                  weights=weights_use, pw_pool=xc_pw_pool, &
+                                  compute_virial=.FALSE., &
+                                  virial_xc=vdum, &
+                                  exc_r=exc_r)
+         END IF
          ! calclulate non-local vdW functional
          ! only if this XC_SECTION has it
          ! if yes, we use the dispersion_env from ks_env

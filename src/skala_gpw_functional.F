@@ -38,6 +38,7 @@ MODULE skala_gpw_functional
         skala_gpw_feature_type, skala_gpw_smooth_partition_derivatives, &
         smooth_partition_atomic_weight_scale_derivative
    USE skala_torch_api,                 ONLY: skala_torch_model_get_exc,&
+                                              skala_torch_model_get_exc_density,&
                                               skala_torch_model_load,&
                                               skala_torch_model_release,&
                                               skala_torch_model_type
@@ -46,8 +47,8 @@ MODULE skala_gpw_functional
         torch_cuda_device_count, torch_cuda_is_available, torch_dict_create, torch_dict_insert, &
         torch_dict_release, torch_dict_type, torch_tensor_backward_scalar, torch_tensor_data_ptr, &
         torch_tensor_from_array, torch_tensor_grad, torch_tensor_grad_batch3, &
-        torch_tensor_release, torch_tensor_reset_from_array, torch_tensor_to_device_leaf, &
-        torch_tensor_type, torch_use_cuda
+        torch_tensor_release, torch_tensor_reset_from_array, torch_tensor_to_cpu, &
+        torch_tensor_to_device_leaf, torch_tensor_type, torch_use_cuda
    USE xc_input_constants,              ONLY: skala_gapw_cp2k_default,&
                                               skala_gapw_direct_valence,&
                                               skala_gapw_paw_one_center,&
@@ -86,7 +87,8 @@ MODULE skala_gpw_functional
              skala_gapw_atom_composite_energy, skala_gapw_atom_vxc_of_r, &
              native_skala_gapw_atom_composite_requested, &
              native_skala_gapw_composite_direct_ao, native_skala_gapw_composite_reference, &
-             native_skala_gapw_density_partition, skala_gpw_eval, skala_gpw_weight_derivative, &
+             native_skala_gapw_density_partition, skala_gpw_eval, skala_gpw_exc_density, &
+             skala_gpw_weight_derivative, &
              skala_gapw_representation, xc_section_uses_native_skala_evaluator, &
              xc_section_uses_native_skala_grid, xc_section_uses_gauxc_model
 
@@ -824,6 +826,143 @@ CONTAINS
       CALL torch_use_cuda(.TRUE.)
 
    END SUBROUTINE skala_gpw_weight_derivative
+
+! **************************************************************************************************
+!> \brief Evaluate the native-grid SKALA exchange-correlation energy density field.
+!>        The field is assembled on the regular real-space grid of rho_r and returned in exc_r.
+!>        It represents the XC energy per unit volume such that integrating with the grid
+!>        cell volume reproduces the total XC energy.
+!> \param exc_r output energy density field (created on pw_pool) ...
+!> \param rho_r ...
+!> \param rho_g ...
+!> \param tau ...
+!> \param xc_section ...
+!> \param weights optional integration-weight multiplier ...
+!> \param pw_pool ...
+!> \param particle_set ...
+!> \param cell ...
+! **************************************************************************************************
+   SUBROUTINE skala_gpw_exc_density(exc_r, rho_r, rho_g, tau, xc_section, weights, pw_pool, &
+                                    particle_set, cell)
+      TYPE(pw_r3d_rs_type), INTENT(INOUT)                :: exc_r
+      TYPE(pw_r3d_rs_type), DIMENSION(:), POINTER        :: rho_r
+      TYPE(pw_c1d_gs_type), DIMENSION(:), POINTER        :: rho_g
+      TYPE(pw_r3d_rs_type), DIMENSION(:), POINTER        :: tau
+      TYPE(section_vals_type), POINTER                   :: xc_section
+      TYPE(pw_r3d_rs_type), POINTER                      :: weights
+      TYPE(pw_pool_type), POINTER                        :: pw_pool
+      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
+      TYPE(cell_type), POINTER                           :: cell
+
+      CHARACTER(len=default_path_length)                 :: model_path
+      INTEGER :: feature_begin, feature_end, feature_pos, i, j, k, local_row, &
+         native_grid_atom_partition, native_grid_cuda_device, nspins, row, selected_cuda_device, &
+         xc_deriv_method_id, xc_rho_smooth_id
+      INTEGER, DIMENSION(2, 3)                           :: bo
+      LOGICAL                                            :: lsd, native_grid_use_cuda
+      REAL(KIND=dp), DIMENSION(:), POINTER               :: exc_density
+      TYPE(section_vals_type), POINTER                   :: gauxc_section
+      TYPE(skala_gpw_feature_type)                       :: features
+      TYPE(torch_tensor_type)                            :: exc_density_cpu_t, exc_density_t
+      TYPE(xc_rho_cflags_type)                           :: needs
+      TYPE(xc_rho_set_type)                              :: rho_set
+
+      CPASSERT(ASSOCIATED(rho_r))
+      CPASSERT(ASSOCIATED(rho_g))
+      CPASSERT(ASSOCIATED(tau))
+      CALL pw_pool%create_pw(exc_r)
+      CALL pw_zero(exc_r)
+
+      nspins = SIZE(rho_r)
+      lsd = (nspins /= 1)
+      CALL get_skala_model_path(xc_section, model_path)
+      gauxc_section => get_gauxc_section(xc_section)
+      CALL section_vals_val_get(gauxc_section, "NATIVE_GRID_USE_CUDA", l_val=native_grid_use_cuda)
+      CALL section_vals_val_get(gauxc_section, "NATIVE_GRID_CUDA_DEVICE", &
+                                i_val=native_grid_cuda_device)
+      CALL section_vals_val_get(gauxc_section, "NATIVE_GRID_ATOM_PARTITION", &
+                                i_val=native_grid_atom_partition)
+      SELECT CASE (native_grid_atom_partition)
+      CASE (1)
+         native_grid_atom_partition = skala_gpw_atom_partition_hard
+      CASE (2)
+         native_grid_atom_partition = skala_gpw_atom_partition_smooth
+      CASE DEFAULT
+         CALL cp_abort(__LOCATION__, &
+                       "Unknown GAUXC%NATIVE_GRID_ATOM_PARTITION value.")
+      END SELECT
+
+      CALL torch_use_cuda(native_grid_use_cuda)
+      selected_cuda_device = configure_native_grid_cuda( &
+                             native_grid_use_cuda, native_grid_cuda_device, rho_r(1)%pw_grid%para%group)
+      CALL ensure_model_loaded(model_path, selected_cuda_device)
+
+      IF (lsd) THEN
+         needs%rho_spin = .TRUE.
+         needs%drho_spin = .TRUE.
+         needs%tau_spin = .TRUE.
+      ELSE
+         needs%rho = .TRUE.
+         needs%drho = .TRUE.
+         needs%tau = .TRUE.
+      END IF
+
+      CALL section_vals_val_get(xc_section, "XC_GRID%XC_DERIV", i_val=xc_deriv_method_id)
+      CALL section_vals_val_get(xc_section, "XC_GRID%XC_SMOOTH_RHO", i_val=xc_rho_smooth_id)
+
+      CALL xc_rho_set_create(rho_set, &
+                             rho_r(1)%pw_grid%bounds_local, &
+                             rho_cutoff=section_get_rval(xc_section, "density_cutoff"), &
+                             drho_cutoff=section_get_rval(xc_section, "gradient_cutoff"), &
+                             tau_cutoff=section_get_rval(xc_section, "tau_cutoff"))
+      CALL xc_rho_set_update(rho_set, rho_r, rho_g, tau, needs, &
+                             xc_deriv_method_id, xc_rho_smooth_id, pw_pool)
+
+      CALL skala_gpw_feature_build(features, rho_set, rho_r, particle_set, cell, &
+                                   requires_grad=.FALSE., weights=weights, &
+                                   requires_coordinate_grad=.FALSE., &
+                                   requires_stress_grad=.FALSE., &
+                                   use_atom_chunks=.FALSE., route_atom_chunks=.FALSE., &
+                                   atom_partition=native_grid_atom_partition)
+      CALL skala_torch_model_get_exc_density(cached_model, features%inputs, exc_density_t)
+      CALL torch_tensor_to_cpu(exc_density_t, exc_density_cpu_t)
+      NULLIFY (exc_density)
+      CALL torch_tensor_data_ptr(exc_density_cpu_t, exc_density)
+
+      bo = rho_r(1)%pw_grid%bounds_local
+      local_row = 0
+      DO k = bo(1, 3), bo(2, 3)
+         DO j = bo(1, 2), bo(2, 2)
+            DO i = bo(1, 1), bo(2, 1)
+               local_row = local_row + 1
+               feature_begin = features%local_feature_offsets(local_row)
+               feature_end = features%local_feature_offsets(local_row + 1) - 1
+               IF (ASSOCIATED(weights)) THEN
+                  DO feature_pos = feature_begin, feature_end
+                     row = features%local_feature_rows(feature_pos)
+                     exc_r%array(i, j, k) = exc_r%array(i, j, k) + &
+                                            exc_density(row)*features%grid_weights(row)/ &
+                                            (rho_r(1)%pw_grid%dvol*weights%array(i, j, k))
+                  END DO
+               ELSE
+                  DO feature_pos = feature_begin, feature_end
+                     row = features%local_feature_rows(feature_pos)
+                     exc_r%array(i, j, k) = exc_r%array(i, j, k) + &
+                                            exc_density(row)*features%grid_weights(row)/ &
+                                            rho_r(1)%pw_grid%dvol
+                  END DO
+               END IF
+            END DO
+         END DO
+      END DO
+      CPASSERT(local_row == features%nflat_local)
+      CALL torch_tensor_release(exc_density_cpu_t)
+      CALL torch_tensor_release(exc_density_t)
+      CALL skala_gpw_feature_release(features)
+      CALL xc_rho_set_release(rho_set, pw_pool=pw_pool)
+      CALL torch_use_cuda(.TRUE.)
+
+   END SUBROUTINE skala_gpw_exc_density
 
 ! **************************************************************************************************
 !> \brief Evaluate SKALA on a GAPW one-center atomic grid.
